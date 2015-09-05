@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS 'triples' (
 	'subj' TEXT NULL,
 	'pred' TEXT NULL,
 	'obj' TEXT NULL,
+	'lang' TEXT NULL,
 	'created' DATE NULL
 )
 `
@@ -60,17 +61,17 @@ func sqlToTriples(rows *sql.Rows) ([]*Triple, error) {
 	defer rows.Close()
 	var triples []*Triple
 	for rows.Next() {
-		var subj, pred, obj string
-		if err := rows.Scan(&subj, &pred, &obj); err != nil {
+		var subj, pred, obj, lang string
+		if err := rows.Scan(&subj, &pred, &obj, &lang); err != nil {
 			return nil, err
 		}
-		triples = append(triples, &Triple{subj, pred, obj})
+		triples = append(triples, &Triple{subj, pred, obj, lang})
 	}
 	return triples, nil
 }
 
 func getAllTriples() ([]*Triple, error) {
-	rows, err := db.Query("SELECT subj, pred, obj from triples")
+	rows, err := db.Query("SELECT subj, pred, obj, lang from triples")
 	if err != nil {
 		return nil, err
 	}
@@ -238,6 +239,12 @@ func astToQuery(q ast.Expr) ([]*Query, error) {
 				return nil, fmt.Errorf("Id requires string literal not %#v", e.Args[0])
 			}
 			queries = append(queries, &Query{Subj: []string{ident.Value[1 : len(ident.Value)-1]}})
+		case "All":
+			queries = append(queries, &Query{
+				Filter: []*Filter{{
+					Type: Filter_ALL,
+				}},
+			})
 		case "Preds":
 			query := &Query{}
 			if len(e.Args) == 0 {
@@ -398,7 +405,7 @@ func (r *request) checkNextQuery(triples []*Triple) error {
 
 func executeQuery(q *Query) ([]*Triple, error) {
 	var args []interface{}
-	sql := "SELECT subj, pred, obj FROM triples WHERE "
+	sql := "SELECT subj, pred, obj, lang FROM triples"
 	var wheres, filters, ids []string
 	subMap := make(map[string]bool)
 	for _, id := range q.Subj {
@@ -432,7 +439,9 @@ func executeQuery(q *Query) ([]*Triple, error) {
 		wheres = append(wheres, "("+strings.Join(filters, " OR ")+")")
 	}
 
-	sql += strings.Join(wheres, " AND ")
+	if len(wheres) > 0 {
+		sql += " WHERE " + strings.Join(wheres, " AND ")
+	}
 	log.Printf("QUERY: %s %#v", sql, args)
 	rows, err := db.Query(sql, args...)
 	if err != nil {
@@ -464,7 +473,7 @@ func main() {
 	del.nodes = list
 
 	// Configure the database.
-	db, err = sql.Open("sqlite3", "./deg-"+list.LocalNode().Name+".db")
+	db, err = sql.Open("sqlite3", "./deg-"+list.LocalNode().Name+".db?cache=shared&mode=rwc")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -547,8 +556,9 @@ func main() {
 		subj := r.FormValue("subj")
 		pred := r.FormValue("pred")
 		obj := r.FormValue("obj")
+		lang := r.FormValue("lang")
 		triple := &Triple{
-			subj, pred, obj,
+			subj, pred, obj, lang,
 		}
 		req := &AddTriplesRequest{
 			&Node{},

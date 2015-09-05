@@ -34,17 +34,20 @@ const (
 	Filter_EXISTS    Filter_Type = 0
 	Filter_EQUAL     Filter_Type = 1
 	Filter_NOT_EQUAL Filter_Type = 2
+	Filter_ALL       Filter_Type = 3
 )
 
 var Filter_Type_name = map[int32]string{
 	0: "EXISTS",
 	1: "EQUAL",
 	2: "NOT_EQUAL",
+	3: "ALL",
 }
 var Filter_Type_value = map[string]int32{
 	"EXISTS":    0,
 	"EQUAL":     1,
 	"NOT_EQUAL": 2,
+	"ALL":       3,
 }
 
 func (x Filter_Type) String() string {
@@ -70,6 +73,7 @@ type Triple struct {
 	Subj string `protobuf:"bytes,1,opt,name=subj" json:"subj,omitempty"`
 	Pred string `protobuf:"bytes,2,opt,name=pred" json:"pred,omitempty"`
 	Obj  string `protobuf:"bytes,3,opt,name=obj" json:"obj,omitempty"`
+	Lang string `protobuf:"bytes,4,opt,name=lang" json:"lang,omitempty"`
 }
 
 func (m *Triple) Reset()         { *m = Triple{} }

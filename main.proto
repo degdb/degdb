@@ -8,6 +8,7 @@ message Triple {
   string subj = 1;
   string pred = 2;
   string obj = 3;
+  string lang = 4;
 }
 
 message Node {
@@ -28,6 +29,7 @@ message Filter {
     EXISTS = 0;
     EQUAL = 1;
     NOT_EQUAL = 2;
+    ALL = 3;
   }
   Type type = 3;
 }
