@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"database/sql"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -34,6 +35,7 @@ CREATE TABLE IF NOT EXISTS 'triples' (
 `
 
 var tripleQuery *sql.Stmt
+var db *sql.DB
 
 func setupDB(db *sql.DB) error {
 	var err error
@@ -47,7 +49,23 @@ func setupDB(db *sql.DB) error {
 	return nil
 }
 
-var db *sql.DB
+func getAllTriples() ([]*Triple, error) {
+	rows, err := db.Query("SELECT subj, pred, obj from triples")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var triples []*Triple
+	for rows.Next() {
+		var subj, pred, obj string
+		err = rows.Scan(&subj, &pred, &obj)
+		if err != nil {
+			return nil, err
+		}
+		triples = append(triples, &Triple{subj, pred, obj})
+	}
+	return triples, nil
+}
 
 func insertTriple(triple *Triple) error {
 	_, err := tripleQuery.Exec(triple.Subj, triple.Pred, triple.Obj, time.Now())
@@ -154,6 +172,14 @@ func main() {
 		}
 		packaged := append([]byte("AddTriplesRequest:"), out...)
 		list.SendToTCP(node, packaged)
+	})
+	http.HandleFunc("/api/v1/triples", func(w http.ResponseWriter, r *http.Request) {
+		triples, err := getAllTriples()
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		json.NewEncoder(w).Encode(triples)
 	})
 	http.HandleFunc("/api/v1/status", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "running")
