@@ -6,9 +6,14 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"log"
 	"math/rand"
 	"net/http"
+	"reflect"
+	"sync"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -98,9 +103,104 @@ func (d *delegate) NotifyMsg(msg []byte) {
 		}
 	}
 }
-func (d *delegate) GetBroadcasts(overhead, limit int) [][]byte { return nil }
-func (d *delegate) LocalState(join bool) []byte                { return nil }
-func (d *delegate) MergeRemoteState(buf []byte, join bool)     {}
+
+func serializeProto(msg proto.Message) ([]byte, error) {
+	out, err := proto.Marshal(msg)
+	if err != nil {
+		return nil, err
+	}
+	return append([]byte(reflect.TypeOf(msg).Name()+":"), out...), nil
+}
+
+var queuedBroadcasts [][]byte
+var broadcastLock sync.Mutex
+
+func queueBroadcast(broadcast []byte) {
+	broadcastLock.Lock()
+	defer broadcastLock.Unlock()
+
+	queuedBroadcasts = append(queuedBroadcasts, broadcast)
+}
+
+func (d *delegate) GetBroadcasts(overhead, limit int) [][]byte {
+	broadcastLock.Lock()
+	defer broadcastLock.Unlock()
+	broadcasts := queuedBroadcasts
+	queuedBroadcasts = nil
+	return broadcasts
+}
+func (d *delegate) LocalState(join bool) []byte            { return nil }
+func (d *delegate) MergeRemoteState(buf []byte, join bool) {}
+
+func astToCallExpr(q ast.Expr) ([]*ast.CallExpr, error) {
+	switch e := q.(type) {
+	case *ast.CallExpr:
+		exprs, err := astToCallExpr(e.Fun)
+		if err != nil {
+			return nil, err
+		}
+		exprs[len(exprs)-1].Args = e.Args
+		return exprs, err
+	case *ast.SelectorExpr:
+		f := &ast.CallExpr{Fun: e.Sel}
+		exprs, err := astToCallExpr(e.X)
+		if err != nil {
+			return nil, err
+		}
+		return append(exprs, f), nil
+	case *ast.Ident:
+		return []*ast.CallExpr{&ast.CallExpr{Fun: e}}, nil
+	default:
+		return nil, fmt.Errorf("unknown ast %#v", e)
+	}
+}
+
+func astToQuery(q ast.Expr) ([]*Query, error) {
+	expr, err := astToCallExpr(q)
+	if err != nil {
+		return nil, err
+	}
+	var queries []*Query
+	for _, e := range expr {
+		typ := e.Fun.(*ast.Ident).Name
+		switch typ {
+		case "Id":
+			if len(e.Args) != 1 {
+				return nil, fmt.Errorf("Id requires 1 argument not %d", len(e.Args))
+			}
+			ident, ok := e.Args[0].(*ast.BasicLit)
+			if !ok || ident.Kind != token.STRING {
+				return nil, fmt.Errorf("Id requires string literal not %#v", e.Args[0])
+			}
+			queries = append(queries, &Query{Subj: ident.Value})
+		case "Preds":
+			query := &Query{}
+			if len(e.Args) == 0 {
+				return nil, fmt.Errorf("Preds requires at least 1 argument")
+			}
+			for _, arg := range e.Args {
+				ident, ok := arg.(*ast.BasicLit)
+				if !ok || ident.Kind != token.STRING {
+					return nil, fmt.Errorf("Preds requires string literal not %#v", arg)
+				}
+				/*
+					if ident.Op != token.EQL && ident.Open != token.NEQ {
+						return nil, fmt.Errorf("Preds only supports == & !=", e.Args[0])
+					}
+				*/
+				query.Filter = append(query.Filter, &Filter{
+					Pred: ident.Value,
+					Type: Filter_EXISTS,
+				})
+			}
+			queries = append(queries, query)
+
+		default:
+			return nil, fmt.Errorf("unknown function %#v", typ)
+		}
+	}
+	return queries, nil
+}
 
 func main() {
 	flag.Parse()
@@ -142,7 +242,38 @@ func main() {
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {})
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
-	http.HandleFunc("/api/v1/query", func(w http.ResponseWriter, r *http.Request) {})
+	http.HandleFunc("/api/v1/query", func(w http.ResponseWriter, r *http.Request) {
+		err := r.ParseForm()
+		if err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+		q := r.FormValue("q")
+		log.Printf("Query: %s", q)
+		expr, err := parser.ParseExpr(q)
+		if err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+		calls, err := astToQuery(expr)
+		if err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+		log.Printf("AST %#v", calls)
+		ch := make(chan []*Triple, 1)
+		timeout := make(chan bool, 1)
+		go func() {
+			time.Sleep(1 * time.Second)
+			timeout <- true
+		}()
+		select {
+		case triples := <-ch:
+			json.NewEncoder(w).Encode(triples)
+		case <-timeout:
+			http.Error(w, "query timed out", 500)
+		}
+	})
 	http.HandleFunc("/api/v1/insert", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "POST" {
 			http.Error(w, "endpoint needs POST", 400)
@@ -165,12 +296,11 @@ func main() {
 		}
 		members := list.Members()
 		node := members[rand.Intn(len(members))]
-		out, err := proto.Marshal(req)
+		packaged, err := serializeProto(req)
 		if err != nil {
 			http.Error(w, err.Error(), 500)
 			return
 		}
-		packaged := append([]byte("AddTriplesRequest:"), out...)
 		list.SendToTCP(node, packaged)
 	})
 	http.HandleFunc("/api/v1/triples", func(w http.ResponseWriter, r *http.Request) {

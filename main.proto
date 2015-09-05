@@ -16,7 +16,9 @@ message Node {
 
 message Query {
   Node source = 1;
-  repeated Filter filter = 2;
+  int64 id = 2;
+  string subj = 3;
+  repeated Filter filter = 4;
 }
 
 message Filter {
@@ -28,6 +30,12 @@ message Filter {
     NOT_EQUAL = 2;
   }
   Type type = 3;
+}
+
+message QueryResp {
+  Node source = 1;
+  int64 id = 2;
+  repeated Triple triples = 3;
 }
 
 message AddTriplesRequest {

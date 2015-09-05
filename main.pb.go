@@ -14,6 +14,7 @@ It has these top-level messages:
 	Node
 	Query
 	Filter
+	QueryResp
 	AddTriplesRequest
 */
 package main
@@ -85,7 +86,9 @@ func (*Node) ProtoMessage()    {}
 
 type Query struct {
 	Source *Node     `protobuf:"bytes,1,opt,name=source" json:"source,omitempty"`
-	Filter []*Filter `protobuf:"bytes,2,rep,name=filter" json:"filter,omitempty"`
+	Id     int64     `protobuf:"varint,2,opt,name=id" json:"id,omitempty"`
+	Subj   string    `protobuf:"bytes,3,opt,name=subj" json:"subj,omitempty"`
+	Filter []*Filter `protobuf:"bytes,4,rep,name=filter" json:"filter,omitempty"`
 }
 
 func (m *Query) Reset()         { *m = Query{} }
@@ -115,6 +118,30 @@ type Filter struct {
 func (m *Filter) Reset()         { *m = Filter{} }
 func (m *Filter) String() string { return proto.CompactTextString(m) }
 func (*Filter) ProtoMessage()    {}
+
+type QueryResp struct {
+	Source  *Node     `protobuf:"bytes,1,opt,name=source" json:"source,omitempty"`
+	Id      int64     `protobuf:"varint,2,opt,name=id" json:"id,omitempty"`
+	Triples []*Triple `protobuf:"bytes,3,rep,name=triples" json:"triples,omitempty"`
+}
+
+func (m *QueryResp) Reset()         { *m = QueryResp{} }
+func (m *QueryResp) String() string { return proto.CompactTextString(m) }
+func (*QueryResp) ProtoMessage()    {}
+
+func (m *QueryResp) GetSource() *Node {
+	if m != nil {
+		return m.Source
+	}
+	return nil
+}
+
+func (m *QueryResp) GetTriples() []*Triple {
+	if m != nil {
+		return m.Triples
+	}
+	return nil
+}
 
 type AddTriplesRequest struct {
 	Source  *Node     `protobuf:"bytes,1,opt,name=source" json:"source,omitempty"`
