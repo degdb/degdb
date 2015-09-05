@@ -589,9 +589,12 @@ func main() {
 		}
 		json.NewEncoder(w).Encode(triples)
 	})
+	http.HandleFunc("/api/v1/peers", func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(list.Members())
+	})
+
 	http.HandleFunc("/api/v1/status", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "running")
 	})
-
 	log.Fatal(http.ListenAndServe(*webAddr, nil))
 }
