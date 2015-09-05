@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
-	"html"
 	"log"
 	"net/http"
 	"time"
@@ -14,7 +13,11 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
+//go:generate protoc --go_out=. main.proto
+
 var peerAddr = flag.String("peer", "", "The peer address to bootstrap off.")
+var bindPort = flag.Int("port", 7946, "The port to bind on.")
+var webAddr = flag.String("webAddr", ":8080", "The bin address for the webserver.")
 
 const newDBQuery = `
 CREATE TABLE IF NOT EXISTS 'triples' (
@@ -42,16 +45,24 @@ func setupDB(db *sql.DB) error {
 
 var db *sql.DB
 
-type Triple struct {
-	Subj, Pred, Obj string
-}
-
 func insertTriple(triple *Triple) error {
 	_, err := tripleQuery.Exec(triple.Subj, triple.Pred, triple.Obj, time.Now())
 	return err
 }
 
+type delegate struct{}
+
+func (d *delegate) NodeMeta(limit int) []byte { return nil }
+func (d *delegate) NotifyMsg(msg []byte) {
+	log.Printf("Message %s", msg)
+}
+func (d *delegate) GetBroadcasts(overhead, limit int) [][]byte { return nil }
+func (d *delegate) LocalState(join bool) []byte                { return nil }
+func (d *delegate) MergeRemoteState(buf []byte, join bool)     {}
+
 func main() {
+	flag.Parse()
+
 	var err error
 	db, err = sql.Open("sqlite3", "./deg.db")
 	if err != nil {
@@ -61,7 +72,12 @@ func main() {
 		log.Fatal(err)
 	}
 
-	list, err := memberlist.Create(memberlist.DefaultWANConfig())
+	del := &delegate{}
+	config := memberlist.DefaultWANConfig()
+	config.Delegate = del
+	log.Printf("Listening on %s:%d", config.BindAddr, config.BindPort)
+	config.BindPort = *bindPort
+	list, err := memberlist.Create(config)
 	if err != nil {
 		log.Fatal("Failed to create memberlist: " + err.Error())
 	}
@@ -79,9 +95,10 @@ func main() {
 		log.Printf("Node: %s %s\n", member.Name, member.Addr)
 	}
 
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "Hello, %q", html.EscapeString(r.URL.Path))
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {})
+	http.HandleFunc("/api/v1/status", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "running")
 	})
 
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	log.Fatal(http.ListenAndServe(*webAddr, nil))
 }

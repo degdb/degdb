@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+message TripleSet {
+  repeated Triple triples = 1;
+}
+
+message Triple {
+  string Subj = 1;
+  string Pred = 2;
+  string Obj = 3;
+}
