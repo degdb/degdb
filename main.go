@@ -30,6 +30,7 @@ var peerAddr = flag.String("peer", "", "The peer address to bootstrap off.")
 var bindPort = flag.Int("port", 7946, "The port to bind on.")
 var bindAddr = flag.String("hostname", "", "The hostname to use.")
 var webAddr = flag.String("webAddr", ":8080", "The bin address for the webserver.")
+var dbDir = flag.String("db", ".", "The directory for the database.")
 
 const newDBQuery = `
 CREATE TABLE IF NOT EXISTS 'triples' (
@@ -44,13 +45,14 @@ CREATE TABLE IF NOT EXISTS 'triples' (
 
 var tripleQuery *sql.Stmt
 var db *sql.DB
+var dbLock sync.Mutex
 
 func setupDB(db *sql.DB) error {
 	var err error
 	if _, err = db.Exec(newDBQuery); err != nil {
 		return err
 	}
-	tripleQuery, err = db.Prepare("INSERT INTO triples(subj, pred, obj, created) values(?,?,?,?)")
+	tripleQuery, err = db.Prepare("INSERT INTO triples(subj, pred, obj, lang, created) values(?,?,?,?,?)")
 	if err != nil {
 		return err
 	}
@@ -71,7 +73,9 @@ func sqlToTriples(rows *sql.Rows) ([]*Triple, error) {
 }
 
 func getAllTriples() ([]*Triple, error) {
+	dbLock.Lock()
 	rows, err := db.Query("SELECT subj, pred, obj, lang from triples")
+	dbLock.Unlock()
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +83,9 @@ func getAllTriples() ([]*Triple, error) {
 }
 
 func insertTriple(triple *Triple) error {
-	_, err := tripleQuery.Exec(triple.Subj, triple.Pred, triple.Obj, time.Now())
+	dbLock.Lock()
+	_, err := tripleQuery.Exec(triple.Subj, triple.Pred, triple.Obj, triple.Lang, time.Now())
+	dbLock.Unlock()
 	return err
 }
 
@@ -316,7 +322,7 @@ var requestIndex = make(map[int64]*request)
 
 func (r *request) runQuery() error {
 	query := r.queries[r.queryIndex]
-	if len(query.Filter) == 0 {
+	if len(query.Filter) == 0 && len(r.queries) > 1 {
 		r.queryIndex++
 		r.queries[r.queryIndex].Subj = query.Subj
 		return r.runQuery()
@@ -443,7 +449,9 @@ func executeQuery(q *Query) ([]*Triple, error) {
 		sql += " WHERE " + strings.Join(wheres, " AND ")
 	}
 	log.Printf("QUERY: %s %#v", sql, args)
+	dbLock.Lock()
 	rows, err := db.Query(sql, args...)
+	dbLock.Unlock()
 	if err != nil {
 		return nil, err
 	}
@@ -473,7 +481,7 @@ func main() {
 	del.nodes = list
 
 	// Configure the database.
-	db, err = sql.Open("sqlite3", "./deg-"+list.LocalNode().Name+".db?cache=shared&mode=rwc")
+	db, err = sql.Open("sqlite3", *dbDir+"/deg-"+list.LocalNode().Name+".db?cache=shared&mode=rwc")
 	if err != nil {
 		log.Fatal(err)
 	}
