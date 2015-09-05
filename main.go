@@ -30,6 +30,7 @@ import (
 var peerAddr = flag.String("peer", "", "The peer address to bootstrap off.")
 var bindPort = flag.Int("port", 7946, "The port to bind on.")
 var bindAddr = flag.String("hostname", "", "The hostname to use.")
+var advertiseAddr = flag.String("advertiseAddr", "", "The address to advertise the server on.")
 var webAddr = flag.String("webAddr", ":8080", "The bin address for the webserver.")
 var dbDir = flag.String("db", ".", "The directory for the database.")
 
@@ -477,11 +478,14 @@ func main() {
 	del := &delegate{}
 	config := memberlist.DefaultWANConfig()
 	config.Delegate = del
-	log.Printf("Listening on %s:%d", config.BindAddr, config.BindPort)
 	config.BindPort = *bindPort
 	if len(*bindAddr) > 0 {
 		config.Name = *bindAddr
 	}
+	if len(*advertiseAddr) > 0 {
+		config.AdvertiseAddr = *advertiseAddr
+	}
+	log.Printf("Listening on %s:%d", config.BindAddr, config.BindPort)
 	list, err := memberlist.Create(config)
 	if err != nil {
 		log.Fatal("Failed to create memberlist: " + err.Error())
