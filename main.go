@@ -13,6 +13,7 @@ import (
 	"math/rand"
 	"net/http"
 	"reflect"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -94,7 +95,7 @@ func (d *delegate) NotifyMsg(msg []byte) {
 	}
 	typ := string(msg[:i])
 	msg = msg[i+1:]
-	log.Printf("Message (%s): %s", typ, msg)
+	//log.Printf("Message (%s): %s", typ, msg)
 
 	switch typ {
 	case "AddTriplesRequest":
@@ -258,7 +259,37 @@ func astToQuery(q ast.Expr) ([]*Query, error) {
 				})
 			}
 			queries = append(queries, query)
-
+		case "Filter":
+			query := &Query{}
+			if len(e.Args) == 0 {
+				return nil, fmt.Errorf("Filter requires at least 1 argument")
+			}
+			for _, arg := range e.Args {
+				binary, ok := arg.(*ast.BinaryExpr)
+				if !ok {
+					return nil, fmt.Errorf("Filter requires binary expression not %#v", arg)
+				}
+				filter := &Filter{}
+				pred, ok := binary.X.(*ast.BasicLit)
+				if !ok {
+					return nil, fmt.Errorf("Filter requires string literal not %#v", binary.X)
+				}
+				filter.Pred = pred.Value[1 : len(pred.Value)-1]
+				obj, ok := binary.Y.(*ast.BasicLit)
+				if !ok {
+					return nil, fmt.Errorf("Filter requires string literal not %#v", binary.Y)
+				}
+				filter.Obj = obj.Value[1 : len(obj.Value)-1]
+				if binary.Op == token.EQL {
+					filter.Type = Filter_EQUAL
+				} else if binary.Op == token.NEQ {
+					filter.Type = Filter_NOT_EQUAL
+				} else {
+					return nil, fmt.Errorf("Filter only supports == and !=")
+				}
+				query.Filter = append(query.Filter, filter)
+			}
+			queries = append(queries, query)
 		default:
 			return nil, fmt.Errorf("unknown function %#v", typ)
 		}
@@ -271,6 +302,7 @@ type request struct {
 	queries    []*Query
 	queryIndex int
 	currentID  int64
+	list       *memberlist.Memberlist
 }
 
 var requestIndex = make(map[int64]*request)
@@ -296,49 +328,91 @@ func (r *request) runQuery() error {
 	query.Id = r.currentID
 	query.Source = server
 
+	var wg sync.WaitGroup
+	wg.Add(r.list.NumMembers())
+
+	wgdone := make(chan bool, 1)
+	go func() {
+		wg.Wait()
+		wgdone <- true
+	}()
+
 	msg, err := serializeProto(query)
 	if err != nil {
 		return err
 	}
 	queueBroadcast(msg)
-	triples, err := executeQuery(query)
-	if err != nil {
-		return err
-	}
-
-	log.Printf("Triples %#v", triples)
 
 	ch := make(chan []*Triple, 1)
 	r.in = ch
+
+	go func() {
+		triples, err := executeQuery(query)
+		if err != nil {
+			log.Printf("error executingQuery: %s", err.Error())
+			return
+		}
+		ch <- triples
+	}()
+
+	var triples []*Triple
 	for {
 		select {
 		case trips := <-ch:
 			triples = append(triples, trips...)
+			wg.Done()
 		case <-timeout:
-			r.queryIndex++
-			if len(r.queries) <= r.queryIndex {
-				r.out <- triples
-			} else {
-				query = r.queries[r.queryIndex]
-				for _, triple := range triples {
-					query.Subj = append(query.Subj, triple.Obj)
-				}
-				return r.runQuery()
-			}
-			return fmt.Errorf("external nodes timed out")
+			log.Printf("Timed out waiting...")
+			return r.checkNextQuery(triples)
+		case <-wgdone:
+			return r.checkNextQuery(triples)
 		}
 	}
+}
+
+func (r *request) checkNextQuery(triples []*Triple) error {
+	prevQuery := r.queries[r.queryIndex]
+	r.queryIndex++
+	if len(r.queries) <= r.queryIndex {
+		r.out <- triples
+	} else {
+		prevIsFilter := false
+		for _, filter := range prevQuery.Filter {
+			if filter.Type == Filter_EQUAL || filter.Type == Filter_NOT_EQUAL {
+				prevIsFilter = true
+				break
+			}
+		}
+		query := r.queries[r.queryIndex]
+		for _, triple := range triples {
+			if prevIsFilter {
+				query.Subj = append(query.Subj, triple.Subj)
+			} else {
+				query.Subj = append(query.Subj, triple.Obj)
+			}
+		}
+		return r.runQuery()
+	}
+	return nil //fmt.Errorf("external nodes timed out")
 }
 
 func executeQuery(q *Query) ([]*Triple, error) {
 	var args []interface{}
 	sql := "SELECT subj, pred, obj FROM triples WHERE "
 	var wheres, filters, ids []string
+	subMap := make(map[string]bool)
 	for _, id := range q.Subj {
+		// dedup ids
+		if subMap[id] {
+			continue
+		}
 		ids = append(ids, "subj=?")
 		args = append(args, id)
+		subMap[id] = true
 	}
-	wheres = append(wheres, "("+strings.Join(ids, " OR ")+")")
+	if len(ids) > 0 {
+		wheres = append(wheres, "("+strings.Join(ids, " OR ")+")")
+	}
 	for _, filter := range q.Filter {
 		switch filter.Type {
 		case Filter_EXISTS:
@@ -354,7 +428,9 @@ func executeQuery(q *Query) ([]*Triple, error) {
 			args = append(args, filter.Obj)
 		}
 	}
-	wheres = append(wheres, "("+strings.Join(filters, " OR ")+")")
+	if len(filters) > 0 {
+		wheres = append(wheres, "("+strings.Join(filters, " OR ")+")")
+	}
 
 	sql += strings.Join(wheres, " AND ")
 	log.Printf("QUERY: %s %#v", sql, args)
@@ -368,6 +444,7 @@ func executeQuery(q *Query) ([]*Triple, error) {
 var server *Node
 
 func main() {
+	runtime.GOMAXPROCS(runtime.NumCPU())
 	flag.Parse()
 
 	var err error
@@ -443,6 +520,7 @@ func main() {
 		req := &request{
 			out:     ch,
 			queries: calls,
+			list:    list,
 		}
 		go func() {
 			if err := req.runQuery(); err != nil {
