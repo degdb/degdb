@@ -81,7 +81,9 @@ func insertTriple(triple *Triple) error {
 	return err
 }
 
-type delegate struct{}
+type delegate struct {
+	nodes *memberlist.Memberlist
+}
 
 func (d *delegate) NodeMeta(limit int) []byte { return nil }
 func (d *delegate) NotifyMsg(msg []byte) {
@@ -97,23 +99,80 @@ func (d *delegate) NotifyMsg(msg []byte) {
 	switch typ {
 	case "AddTriplesRequest":
 		var req AddTriplesRequest
-		proto.Unmarshal(msg, &req)
+		err := proto.Unmarshal(msg, &req)
+		if err != nil {
+			log.Printf("err unmarshalling: %s", err.Error())
+			return
+		}
 		for _, triple := range req.Triples {
-			log.Printf("Triple %#v", triple)
 			err := insertTriple(triple)
 			if err != nil {
 				log.Printf("err inserting: %s", err.Error())
+				return
 			}
 		}
+	case "Query":
+		var query Query
+		err := proto.Unmarshal(msg, &query)
+		if err != nil {
+			log.Printf("err unmarshalling: %s", err.Error())
+			return
+		}
+		sender := d.senderNode(query.Source)
+		if sender == nil {
+			log.Printf("err can't find sender node: %s", query.Source.Name)
+			return
+		}
+		triples, err := executeQuery(&query)
+		if err != nil {
+			log.Printf("err executing query: %s", err.Error())
+			return
+		}
+		resp := &QueryResp{
+			Source:  server,
+			Id:      query.Id,
+			Triples: triples,
+		}
+		msg, err := serializeProto(resp)
+		if err != nil {
+			log.Printf("err serializing proto: %s", err.Error())
+			return
+		}
+		d.nodes.SendToTCP(sender, msg)
+	case "QueryResp":
+		var resp QueryResp
+		err := proto.Unmarshal(msg, &resp)
+		if err != nil {
+			log.Printf("err unmarshalling: %s", err.Error())
+			return
+		}
+		req, ok := requestIndex[resp.Id]
+		if !ok {
+			// ID invalid/old
+			log.Printf("err invalid/old request id: %d", resp.Id)
+			return
+		}
+		req.in <- resp.Triples
 	}
 }
 
+func (d *delegate) senderNode(node *Node) *memberlist.Node {
+	for _, n := range d.nodes.Members() {
+		if n.Name == node.Name {
+			return n
+		}
+	}
+	return nil
+}
+
 func serializeProto(msg proto.Message) ([]byte, error) {
+	msgI := msg.(interface{})
+	messageType := reflect.ValueOf(msgI).Elem().Type().Name()
 	out, err := proto.Marshal(msg)
 	if err != nil {
 		return nil, err
 	}
-	return append([]byte(reflect.TypeOf(msg).Name()+":"), out...), nil
+	return append([]byte(messageType+":"), out...), nil
 }
 
 var queuedBroadcasts [][]byte
@@ -208,7 +267,7 @@ func astToQuery(q ast.Expr) ([]*Query, error) {
 }
 
 type request struct {
-	out        chan []*Triple
+	out, in    chan []*Triple
 	queries    []*Query
 	queryIndex int
 	currentID  int64
@@ -226,7 +285,7 @@ func (r *request) runQuery() error {
 
 	timeout := make(chan bool, 1)
 	go func() {
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(1 * time.Second)
 		timeout <- true
 	}()
 
@@ -250,6 +309,7 @@ func (r *request) runQuery() error {
 	log.Printf("Triples %#v", triples)
 
 	ch := make(chan []*Triple, 1)
+	r.in = ch
 	for {
 		select {
 		case trips := <-ch:
@@ -263,6 +323,7 @@ func (r *request) runQuery() error {
 				for _, triple := range triples {
 					query.Subj = append(query.Subj, triple.Obj)
 				}
+				return r.runQuery()
 			}
 			return fmt.Errorf("external nodes timed out")
 		}
@@ -310,13 +371,6 @@ func main() {
 	flag.Parse()
 
 	var err error
-	db, err = sql.Open("sqlite3", "./deg.db")
-	if err != nil {
-		log.Fatal(err)
-	}
-	if err = setupDB(db); err != nil {
-		log.Fatal(err)
-	}
 
 	del := &delegate{}
 	config := memberlist.DefaultWANConfig()
@@ -329,6 +383,16 @@ func main() {
 	list, err := memberlist.Create(config)
 	if err != nil {
 		log.Fatal("Failed to create memberlist: " + err.Error())
+	}
+	del.nodes = list
+
+	// Configure the database.
+	db, err = sql.Open("sqlite3", "./deg-"+list.LocalNode().Name+".db")
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err = setupDB(db); err != nil {
+		log.Fatal(err)
 	}
 
 	// Connect to peers if found.
@@ -347,7 +411,9 @@ func main() {
 	ln := list.LocalNode()
 	server = &Node{Name: ln.Name}
 
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {})
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "file not found ", r.URL.String())
+	})
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 	http.HandleFunc("/api/v1/query", func(w http.ResponseWriter, r *http.Request) {
 		err := r.ParseForm()
@@ -371,7 +437,7 @@ func main() {
 		ch := make(chan []*Triple, 1)
 		timeout := make(chan bool, 1)
 		go func() {
-			time.Sleep(1 * time.Second)
+			time.Sleep(60 * time.Second)
 			timeout <- true
 		}()
 		req := &request{
