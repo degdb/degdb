@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"reflect"
 	"runtime"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -464,8 +465,6 @@ func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	flag.Parse()
 
-	var err error
-
 	del := &delegate{}
 	config := memberlist.DefaultWANConfig()
 	config.Delegate = del
@@ -480,6 +479,11 @@ func main() {
 	}
 	del.nodes = list
 
+	// Setup Crypto
+	if err = initCrypto(list.LocalNode().Name); err != nil {
+		log.Fatal(err)
+	}
+
 	// Configure the database.
 	db, err = sql.Open("sqlite3", *dbDir+"/deg-"+list.LocalNode().Name+".db?cache=shared&mode=rwc")
 	if err != nil {
@@ -493,9 +497,10 @@ func main() {
 	if *peerAddr != "" {
 		n, err := list.Join([]string{*peerAddr})
 		if err != nil {
-			log.Fatal("Failed to join cluster: " + err.Error())
+			log.Printf("Failed to join cluster: " + err.Error())
+		} else {
+			log.Printf("Found %d peer nodes.", n)
 		}
-		log.Printf("Found %d peer nodes.", n)
 	}
 
 	for _, member := range list.Members() {
@@ -589,6 +594,7 @@ func main() {
 		}
 		json.NewEncoder(w).Encode(triples)
 	})
+
 	http.HandleFunc("/api/v1/peers", func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(list.Members())
 	})
@@ -596,5 +602,30 @@ func main() {
 	http.HandleFunc("/api/v1/status", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "running")
 	})
+
+	http.HandleFunc("/api/v1/", func(w http.ResponseWriter, r *http.Request) {
+		endpoints := []string{"status", "peers", "triples", "insert", "query", "peer"}
+		sort.Strings(endpoints)
+		for _, endpoint := range endpoints {
+			url := "/api/v1/" + endpoint
+			fmt.Fprintf(w, "<a href=\"%s\">%s</a><br/>", url, url)
+		}
+	})
+
+	http.HandleFunc("/api/v1/peer", func(w http.ResponseWriter, r *http.Request) {
+		r.ParseForm()
+		addr := r.FormValue("peer")
+		if len(addr) == 0 {
+			http.Error(w, "needs a 'peer' host parameter to connect to", 400)
+			return
+		}
+		n, err := list.Join([]string{addr})
+		if err != nil {
+			fmt.Fprintf(w, "Failed to join cluster: %s", err.Error())
+		} else {
+			fmt.Fprintf(w, "Found %d peer nodes.", n)
+		}
+	})
+
 	log.Fatal(http.ListenAndServe(*webAddr, nil))
 }
