@@ -30,10 +30,10 @@ var tripleQuery *sql.Stmt
 
 func setupDB(db *sql.DB) error {
 	var err error
-	if _, err = db.Query(newDBQuery); err != nil {
+	if _, err = db.Exec(newDBQuery); err != nil {
 		return err
 	}
-	tripleQuery, err = db.Prepare("INSERT INTO triple(subj, pred, obj, created) values(?,?,?)")
+	tripleQuery, err = db.Prepare("INSERT INTO triples(subj, pred, obj, created) values(?,?,?,?)")
 	if err != nil {
 		return err
 	}
