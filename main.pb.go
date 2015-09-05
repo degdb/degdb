@@ -16,6 +16,7 @@ It has these top-level messages:
 	Filter
 	QueryResp
 	AddTriplesRequest
+	ServerStatus
 */
 package main
 
@@ -70,10 +71,12 @@ func (m *TripleSet) GetTriples() []*Triple {
 }
 
 type Triple struct {
-	Subj string `protobuf:"bytes,1,opt,name=subj" json:"subj,omitempty"`
-	Pred string `protobuf:"bytes,2,opt,name=pred" json:"pred,omitempty"`
-	Obj  string `protobuf:"bytes,3,opt,name=obj" json:"obj,omitempty"`
-	Lang string `protobuf:"bytes,4,opt,name=lang" json:"lang,omitempty"`
+	Subj   string `protobuf:"bytes,1,opt,name=subj" json:"subj,omitempty"`
+	Pred   string `protobuf:"bytes,2,opt,name=pred" json:"pred,omitempty"`
+	Obj    string `protobuf:"bytes,3,opt,name=obj" json:"obj,omitempty"`
+	Lang   string `protobuf:"bytes,4,opt,name=lang" json:"lang,omitempty"`
+	Author string `protobuf:"bytes,5,opt,name=author" json:"author,omitempty"`
+	Sig    string `protobuf:"bytes,6,opt,name=sig" json:"sig,omitempty"`
 }
 
 func (m *Triple) Reset()         { *m = Triple{} }
@@ -169,6 +172,14 @@ func (m *AddTriplesRequest) GetTriples() []*Triple {
 	}
 	return nil
 }
+
+type ServerStatus struct {
+	TripleCount int32 `protobuf:"varint,1,opt,name=triple_count" json:"triple_count,omitempty"`
+}
+
+func (m *ServerStatus) Reset()         { *m = ServerStatus{} }
+func (m *ServerStatus) String() string { return proto.CompactTextString(m) }
+func (*ServerStatus) ProtoMessage()    {}
 
 func init() {
 	proto.RegisterEnum("Filter_Type", Filter_Type_name, Filter_Type_value)

@@ -9,6 +9,8 @@ message Triple {
   string pred = 2;
   string obj = 3;
   string lang = 4;
+  string author = 5;
+  string sig = 6;
 }
 
 message Node {
@@ -43,4 +45,8 @@ message QueryResp {
 message AddTriplesRequest {
   Node source = 1;
   repeated Triple triples = 2;
+}
+
+message ServerStatus {
+  int32 triple_count = 1;
 }

@@ -40,6 +40,8 @@ CREATE TABLE IF NOT EXISTS 'triples' (
 	'pred' TEXT NULL,
 	'obj' TEXT NULL,
 	'lang' TEXT NULL,
+	'author' TEXT NULL,
+	'sig' TEXT NULL,
 	'created' DATE NULL
 )
 `
@@ -53,29 +55,36 @@ func setupDB(db *sql.DB) error {
 	if _, err = db.Exec(newDBQuery); err != nil {
 		return err
 	}
-	tripleQuery, err = db.Prepare("INSERT INTO triples(subj, pred, obj, lang, created) values(?,?,?,?,?)")
+	tripleQuery, err = db.Prepare("INSERT INTO triples(subj, pred, obj, lang, author, sig, created) values(?,?,?,?,?,?,?)")
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
+func getTripleCount() (int, error) {
+	row := db.QueryRow("SELECT count(*) FROM triples")
+	var count int
+	err := row.Scan(&count)
+	return count, err
+}
+
 func sqlToTriples(rows *sql.Rows) ([]*Triple, error) {
 	defer rows.Close()
 	var triples []*Triple
 	for rows.Next() {
-		var subj, pred, obj, lang string
-		if err := rows.Scan(&subj, &pred, &obj, &lang); err != nil {
+		var subj, pred, obj, lang, author, sig string
+		if err := rows.Scan(&subj, &pred, &obj, &lang, &author, &sig); err != nil {
 			return nil, err
 		}
-		triples = append(triples, &Triple{subj, pred, obj, lang})
+		triples = append(triples, &Triple{subj, pred, obj, lang, author, sig})
 	}
 	return triples, nil
 }
 
 func getAllTriples() ([]*Triple, error) {
 	dbLock.Lock()
-	rows, err := db.Query("SELECT subj, pred, obj, lang from triples")
+	rows, err := db.Query("SELECT subj, pred, obj, lang, author, sig from triples")
 	dbLock.Unlock()
 	if err != nil {
 		return nil, err
@@ -85,7 +94,7 @@ func getAllTriples() ([]*Triple, error) {
 
 func insertTriple(triple *Triple) error {
 	dbLock.Lock()
-	_, err := tripleQuery.Exec(triple.Subj, triple.Pred, triple.Obj, triple.Lang, time.Now())
+	_, err := tripleQuery.Exec(triple.Subj, triple.Pred, triple.Obj, triple.Lang, triple.Author, triple.Sig, time.Now())
 	dbLock.Unlock()
 	return err
 }
@@ -412,7 +421,7 @@ func (r *request) checkNextQuery(triples []*Triple) error {
 
 func executeQuery(q *Query) ([]*Triple, error) {
 	var args []interface{}
-	sql := "SELECT subj, pred, obj, lang FROM triples"
+	sql := "SELECT subj, pred, obj, lang, author, sig FROM triples"
 	var wheres, filters, ids []string
 	subMap := make(map[string]bool)
 	for _, id := range q.Subj {
@@ -571,7 +580,14 @@ func main() {
 		obj := r.FormValue("obj")
 		lang := r.FormValue("lang")
 		triple := &Triple{
-			subj, pred, obj, lang,
+			Subj: subj,
+			Pred: pred,
+			Obj:  obj,
+			Lang: lang,
+		}
+		if err = triple.Sign(); err != nil {
+			http.Error(w, err.Error(), 500)
+			return
 		}
 		req := &AddTriplesRequest{
 			&Node{},
@@ -600,7 +616,12 @@ func main() {
 	})
 
 	http.HandleFunc("/api/v1/status", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "running")
+		tripleCount, err := getTripleCount()
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		json.NewEncoder(w).Encode(ServerStatus{TripleCount: int32(tripleCount)})
 	})
 
 	http.HandleFunc("/api/v1/", func(w http.ResponseWriter, r *http.Request) {
