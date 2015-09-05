@@ -13,6 +13,7 @@ import (
 	"math/rand"
 	"net/http"
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 
@@ -54,22 +55,25 @@ func setupDB(db *sql.DB) error {
 	return nil
 }
 
-func getAllTriples() ([]*Triple, error) {
-	rows, err := db.Query("SELECT subj, pred, obj from triples")
-	if err != nil {
-		return nil, err
-	}
+func sqlToTriples(rows *sql.Rows) ([]*Triple, error) {
 	defer rows.Close()
 	var triples []*Triple
 	for rows.Next() {
 		var subj, pred, obj string
-		err = rows.Scan(&subj, &pred, &obj)
-		if err != nil {
+		if err := rows.Scan(&subj, &pred, &obj); err != nil {
 			return nil, err
 		}
 		triples = append(triples, &Triple{subj, pred, obj})
 	}
 	return triples, nil
+}
+
+func getAllTriples() ([]*Triple, error) {
+	rows, err := db.Query("SELECT subj, pred, obj from triples")
+	if err != nil {
+		return nil, err
+	}
+	return sqlToTriples(rows)
 }
 
 func insertTriple(triple *Triple) error {
@@ -146,6 +150,7 @@ func astToCallExpr(q ast.Expr) ([]*ast.CallExpr, error) {
 		exprs, err := astToCallExpr(e.X)
 		if err != nil {
 			return nil, err
+
 		}
 		return append(exprs, f), nil
 	case *ast.Ident:
@@ -172,7 +177,7 @@ func astToQuery(q ast.Expr) ([]*Query, error) {
 			if !ok || ident.Kind != token.STRING {
 				return nil, fmt.Errorf("Id requires string literal not %#v", e.Args[0])
 			}
-			queries = append(queries, &Query{Subj: ident.Value})
+			queries = append(queries, &Query{Subj: []string{ident.Value[1 : len(ident.Value)-1]}})
 		case "Preds":
 			query := &Query{}
 			if len(e.Args) == 0 {
@@ -189,7 +194,7 @@ func astToQuery(q ast.Expr) ([]*Query, error) {
 					}
 				*/
 				query.Filter = append(query.Filter, &Filter{
-					Pred: ident.Value,
+					Pred: ident.Value[1 : len(ident.Value)-1],
 					Type: Filter_EXISTS,
 				})
 			}
@@ -201,6 +206,105 @@ func astToQuery(q ast.Expr) ([]*Query, error) {
 	}
 	return queries, nil
 }
+
+type request struct {
+	out        chan []*Triple
+	queries    []*Query
+	queryIndex int
+	currentID  int64
+}
+
+var requestIndex = make(map[int64]*request)
+
+func (r *request) runQuery() error {
+	query := r.queries[r.queryIndex]
+	if len(query.Filter) == 0 {
+		r.queryIndex++
+		r.queries[r.queryIndex].Subj = query.Subj
+		return r.runQuery()
+	}
+
+	timeout := make(chan bool, 1)
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		timeout <- true
+	}()
+
+	delete(requestIndex, r.currentID)
+	r.currentID = rand.Int63()
+	requestIndex[r.currentID] = r
+
+	query.Id = r.currentID
+	query.Source = server
+
+	msg, err := serializeProto(query)
+	if err != nil {
+		return err
+	}
+	queueBroadcast(msg)
+	triples, err := executeQuery(query)
+	if err != nil {
+		return err
+	}
+
+	log.Printf("Triples %#v", triples)
+
+	ch := make(chan []*Triple, 1)
+	for {
+		select {
+		case trips := <-ch:
+			triples = append(triples, trips...)
+		case <-timeout:
+			r.queryIndex++
+			if len(r.queries) <= r.queryIndex {
+				r.out <- triples
+			} else {
+				query = r.queries[r.queryIndex]
+				for _, triple := range triples {
+					query.Subj = append(query.Subj, triple.Obj)
+				}
+			}
+			return fmt.Errorf("external nodes timed out")
+		}
+	}
+}
+
+func executeQuery(q *Query) ([]*Triple, error) {
+	var args []interface{}
+	sql := "SELECT subj, pred, obj FROM triples WHERE "
+	var wheres, filters, ids []string
+	for _, id := range q.Subj {
+		ids = append(ids, "subj=?")
+		args = append(args, id)
+	}
+	wheres = append(wheres, "("+strings.Join(ids, " OR ")+")")
+	for _, filter := range q.Filter {
+		switch filter.Type {
+		case Filter_EXISTS:
+			filters = append(filters, "pred=?")
+			args = append(args, filter.Pred)
+		case Filter_EQUAL:
+			filters = append(filters, "(pred=? AND obj=?)")
+			args = append(args, filter.Pred)
+			args = append(args, filter.Obj)
+		case Filter_NOT_EQUAL:
+			filters = append(filters, "(pred=? AND obj!=?)")
+			args = append(args, filter.Pred)
+			args = append(args, filter.Obj)
+		}
+	}
+	wheres = append(wheres, "("+strings.Join(filters, " OR ")+")")
+
+	sql += strings.Join(wheres, " AND ")
+	log.Printf("QUERY: %s %#v", sql, args)
+	rows, err := db.Query(sql, args...)
+	if err != nil {
+		return nil, err
+	}
+	return sqlToTriples(rows)
+}
+
+var server *Node
 
 func main() {
 	flag.Parse()
@@ -240,6 +344,9 @@ func main() {
 		log.Printf("Node: %s:%d %s\n", member.Name, member.Port, member.Addr)
 	}
 
+	ln := list.LocalNode()
+	server = &Node{Name: ln.Name}
+
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {})
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 	http.HandleFunc("/api/v1/query", func(w http.ResponseWriter, r *http.Request) {
@@ -266,6 +373,15 @@ func main() {
 		go func() {
 			time.Sleep(1 * time.Second)
 			timeout <- true
+		}()
+		req := &request{
+			out:     ch,
+			queries: calls,
+		}
+		go func() {
+			if err := req.runQuery(); err != nil {
+				log.Printf("Query ERR %s", err.Error())
+			}
 		}()
 		select {
 		case triples := <-ch:

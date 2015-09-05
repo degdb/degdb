@@ -17,7 +17,7 @@ message Node {
 message Query {
   Node source = 1;
   int64 id = 2;
-  string subj = 3;
+  repeated string subj = 3;
   repeated Filter filter = 4;
 }
 

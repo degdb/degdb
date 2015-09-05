@@ -87,7 +87,7 @@ func (*Node) ProtoMessage()    {}
 type Query struct {
 	Source *Node     `protobuf:"bytes,1,opt,name=source" json:"source,omitempty"`
 	Id     int64     `protobuf:"varint,2,opt,name=id" json:"id,omitempty"`
-	Subj   string    `protobuf:"bytes,3,opt,name=subj" json:"subj,omitempty"`
+	Subj   []string  `protobuf:"bytes,3,rep,name=subj" json:"subj,omitempty"`
 	Filter []*Filter `protobuf:"bytes,4,rep,name=filter" json:"filter,omitempty"`
 }
 
