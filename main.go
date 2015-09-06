@@ -491,8 +491,12 @@ func main() {
 			log.Fatal(err)
 		}
 		log.Printf("Addresses for %s: %#v", config.Name, addrs)
-		if len(addrs) > 0 {
-			config.AdvertiseAddr = addrs[0]
+		for _, addr := range addrs {
+			// Avoid IPv6
+			if !strings.Contains(addr, ":") {
+				config.AdvertiseAddr = addr
+				break
+			}
 		}
 	}
 	log.Printf("Listening on %s:%d", config.BindAddr, config.BindPort)
