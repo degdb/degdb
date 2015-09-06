@@ -470,15 +470,15 @@ func executeQuery(q *Query) ([]*Triple, error) {
 	for _, filter := range q.Filter {
 		switch filter.Type {
 		case Filter_EXISTS:
-			filters = append(filters, "pred=?")
-			args = append(args, filter.Pred)
+			filters = append(filters, "pred LIKE ?")
+			args = append(args, "%"+filter.Pred)
 		case Filter_EQUAL:
-			filters = append(filters, "(pred=? AND obj=?)")
-			args = append(args, filter.Pred)
+			filters = append(filters, "(pred LIKE ? AND obj=?)")
+			args = append(args, "%"+filter.Pred)
 			args = append(args, filter.Obj)
 		case Filter_NOT_EQUAL:
-			filters = append(filters, "(pred=? AND obj!=?)")
-			args = append(args, filter.Pred)
+			filters = append(filters, "(pred LIKE ? AND obj!=?)")
+			args = append(args, "%"+filter.Pred)
 			args = append(args, filter.Obj)
 		}
 	}

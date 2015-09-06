@@ -1,0 +1,81 @@
+<head>
+  <title>degDB</title>
+  <style>
+    .search-bar {
+      position: fixed;
+      width: 100%;
+      left: 0;
+      height: 150px;
+    }
+    .table {
+      width: 100%;
+      overflow: auto;
+      position: absolute;
+      top: 64px;
+      bottom: 0;
+    }
+  </style>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.97.0/css/materialize.min.css">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+</head>
+<body>
+  <nav class="light-blue accent-3">
+    <div class="nav-wrapper">
+      <form>
+        <div class="input-field">
+          <input id="search" type="search" required>
+          <label for="search"><i class="material-icons">search</i></label>
+          <i class="material-icons">close</i>
+        </div>
+      </form>
+    </div>
+  </nav>
+  <div class="table">
+    <table>
+      <thead>
+        <th>Subject</th>
+        <th>Predicate</th>
+        <th>Object</th>
+        <th>Language</th>
+        <th>Author</th>
+        <th>Signature</th>
+      </thead>
+      <tbody>
+      </tbody>
+    </table>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.0.0-alpha1/jquery.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.97.0/js/materialize.min.js"></script>
+  <script>
+    function execSearch() {
+      var val = $('input').val();
+      $.getJSON('/api/v1/query?q='+encodeURIComponent(val), function(data) {
+        var html = '';
+        if (data) {
+          data.forEach(function(data) {
+            html += '<tr>';
+            var row = [data.subj, data.pred, data.obj, data.lang || '', data.author, data.sig];
+            row.forEach(function(datum) {
+              html += '<td>'+datum+'</td>';
+            });
+            html += '</tr>';
+          });
+        }
+        $('tbody').html(html);
+      });
+      window.location.hash = val;
+    }
+    $(window).on('hashchange', function(e){
+      e.preventDefault();
+    });
+    $('input').val(window.location.hash.slice(1));
+    $('input').on('keydown', function(e) {
+      if (e.keyCode === 13) {
+        execSearch();
+      e.preventDefault();
+      }
+    });
+    execSearch();
+  </script>
+</body>
