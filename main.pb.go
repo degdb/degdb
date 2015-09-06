@@ -36,6 +36,7 @@ const (
 	Filter_EQUAL     Filter_Type = 1
 	Filter_NOT_EQUAL Filter_Type = 2
 	Filter_ALL       Filter_Type = 3
+	Filter_INDEX     Filter_Type = 4
 )
 
 var Filter_Type_name = map[int32]string{
@@ -43,12 +44,14 @@ var Filter_Type_name = map[int32]string{
 	1: "EQUAL",
 	2: "NOT_EQUAL",
 	3: "ALL",
+	4: "INDEX",
 }
 var Filter_Type_value = map[string]int32{
 	"EXISTS":    0,
 	"EQUAL":     1,
 	"NOT_EQUAL": 2,
 	"ALL":       3,
+	"INDEX":     4,
 }
 
 func (x Filter_Type) String() string {

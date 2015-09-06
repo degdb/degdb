@@ -32,6 +32,7 @@ message Filter {
     EQUAL = 1;
     NOT_EQUAL = 2;
     ALL = 3;
+    INDEX = 4;
   }
   Type type = 3;
 }

@@ -16,6 +16,7 @@ import (
 	"reflect"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -233,7 +234,14 @@ func astToCallExpr(q ast.Expr) ([]*ast.CallExpr, error) {
 		}
 		return append(exprs, f), nil
 	case *ast.Ident:
-		return []*ast.CallExpr{&ast.CallExpr{Fun: e}}, nil
+		return []*ast.CallExpr{{Fun: e}}, nil
+	case *ast.IndexExpr:
+		return []*ast.CallExpr{{
+			Fun: &ast.Ident{
+				Name: "Index",
+			},
+			Args: []ast.Expr{e.Index},
+		}}, nil
 	default:
 		return nil, fmt.Errorf("unknown ast %#v", e)
 	}
@@ -261,6 +269,20 @@ func astToQuery(q ast.Expr) ([]*Query, error) {
 			queries = append(queries, &Query{
 				Filter: []*Filter{{
 					Type: Filter_ALL,
+				}},
+			})
+		case "Index":
+			if len(e.Args) != 1 {
+				return nil, fmt.Errorf("Index requires 1 argument")
+			}
+			arg, ok := e.Args[0].(*ast.BasicLit)
+			if !ok || arg.Kind != token.INT {
+				return nil, fmt.Errorf("Index requires int literal not %#v", e.Args[0])
+			}
+			queries = append(queries, &Query{
+				Filter: []*Filter{{
+					Type: Filter_INDEX,
+					Obj:  arg.Value,
 				}},
 			})
 		case "Preds":
@@ -339,7 +361,6 @@ func (r *request) runQuery() error {
 		r.queries[r.queryIndex].Subj = query.Subj
 		return r.runQuery()
 	}
-
 	timeout := make(chan bool, 1)
 	go func() {
 		time.Sleep(1 * time.Second)
@@ -407,6 +428,17 @@ func (r *request) checkNextQuery(triples []*Triple) error {
 				prevIsFilter = true
 				break
 			}
+			if filter.Type == Filter_INDEX {
+				i, err := strconv.Atoi(filter.Obj)
+				if err != nil {
+					return err
+				}
+				if i < 0 || i >= len(triples) {
+					return fmt.Errorf("Index %d is out of range of slice len %d", i, len(triples))
+				}
+				return r.checkNextQuery(triples[i : i+1])
+			}
+
 		}
 		query := r.queries[r.queryIndex]
 		for _, triple := range triples {
@@ -435,9 +467,6 @@ func executeQuery(q *Query) ([]*Triple, error) {
 		args = append(args, id)
 		subMap[id] = true
 	}
-	if len(ids) > 0 {
-		wheres = append(wheres, "("+strings.Join(ids, " OR ")+")")
-	}
 	for _, filter := range q.Filter {
 		switch filter.Type {
 		case Filter_EXISTS:
@@ -452,6 +481,9 @@ func executeQuery(q *Query) ([]*Triple, error) {
 			args = append(args, filter.Pred)
 			args = append(args, filter.Obj)
 		}
+	}
+	if len(ids) > 0 {
+		wheres = append(wheres, "("+strings.Join(ids, " OR ")+")")
 	}
 	if len(filters) > 0 {
 		wheres = append(wheres, "("+strings.Join(filters, " OR ")+")")
