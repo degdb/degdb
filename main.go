@@ -11,6 +11,7 @@ import (
 	"go/token"
 	"log"
 	"math/rand"
+	"net"
 	"net/http"
 	"reflect"
 	"runtime"
@@ -484,6 +485,15 @@ func main() {
 	}
 	if len(*advertiseAddr) > 0 {
 		config.AdvertiseAddr = *advertiseAddr
+	} else {
+		addrs, err := net.LookupHost(config.Name)
+		if err != nil {
+			log.Fatal(err)
+		}
+		log.Printf("Addresses for %s: %#v", config.Name, addrs)
+		if len(addrs) > 0 {
+			config.AdvertiseAddr = addrs[0]
+		}
 	}
 	log.Printf("Listening on %s:%d", config.BindAddr, config.BindPort)
 	list, err := memberlist.Create(config)
