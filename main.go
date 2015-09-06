@@ -29,7 +29,7 @@ import (
 
 //go:generate protoc --go_out=. main.proto
 
-var peerAddr = flag.String("peer", "", "The peer address to bootstrap off.")
+var peerAddr = flag.String("peer", "", "The peer address to bootstrap off. Can use multiple seperated by ;")
 var bindPort = flag.Int("port", 7946, "The port to bind on.")
 var bindAddr = flag.String("hostname", "", "The hostname to use.")
 var advertiseAddr = flag.String("advertiseAddr", "", "The address to advertise the server on.")
@@ -554,7 +554,7 @@ func main() {
 
 	// Connect to peers if found.
 	if *peerAddr != "" {
-		n, err := list.Join([]string{*peerAddr})
+		n, err := list.Join(strings.Split(*peerAddr, ";"))
 		if err != nil {
 			log.Printf("Failed to join cluster: " + err.Error())
 		} else {
