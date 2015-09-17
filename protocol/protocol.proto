@@ -1,0 +1,47 @@
+syntax = "proto3";
+
+message Triple {
+  string subj = 1;
+  string pred = 2;
+  string obj = 3;
+  string lang = 4;
+  string author = 5;
+  string sig = 6;
+}
+
+message Peer {
+  string id = 1;
+
+  Keyspace keyspace = 2;
+}
+
+// Keyspace represents a range of values that a node has.
+message Keyspace {
+  uint64 start = 1;
+  uint64 end = 2;
+}
+
+/*
+  QueryRequest is a request for triple data.
+  filter - is the data request.
+  keyspace - is the range of topic ID hashes to provide.
+  limit - max number of results to return.
+*/
+message QueryRequest {
+  Triple filter = 1;
+  int32 limit = 2;
+  Keyspace keyspace = 3;
+}
+
+message QueryResponse {
+  repeated Triple triples = 1;
+}
+
+message PeerRequest {
+  Keyspace keyspace = 1;
+  int32 limit = 2;
+}
+
+message PeerResponse {
+  repeated Peer peers = 1;
+}

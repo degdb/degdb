@@ -11,6 +11,9 @@ message Triple {
   string lang = 4;
   string author = 5;
   string sig = 6;
+
+  // this is used for visualization purposes only.
+  string source = 7;
 }
 
 message Node {

@@ -80,7 +80,7 @@ func sqlToTriples(rows *sql.Rows) ([]*Triple, error) {
 		if err := rows.Scan(&subj, &pred, &obj, &lang, &author, &sig); err != nil {
 			return nil, err
 		}
-		triples = append(triples, &Triple{subj, pred, obj, lang, author, sig})
+		triples = append(triples, &Triple{subj, pred, obj, lang, author, sig, ""})
 	}
 	return triples, nil
 }
@@ -172,6 +172,9 @@ func (d *delegate) NotifyMsg(msg []byte) {
 			// ID invalid/old
 			log.Printf("err invalid/old request id: %d", resp.Id)
 			return
+		}
+		for _, triple := range resp.Triples {
+			triple.Source = resp.Source.Name
 		}
 		req.in <- resp.Triples
 	}
@@ -573,6 +576,27 @@ func main() {
 		fmt.Fprint(w, "file not found ", r.URL.String())
 	})
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
+	http.HandleFunc("/api/v1/query2", func(w http.ResponseWriter, r *http.Request) {
+		err := r.ParseForm()
+		if err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+		q := r.FormValue("q")
+		l := r.FormValue("lang")
+		log.Printf("Query: %s, Lang: %s", q, l)
+		output, err := runQuery(l, q)
+		if err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+		err = json.NewEncoder(w).Encode(output)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+	})
+
 	http.HandleFunc("/api/v1/query", func(w http.ResponseWriter, r *http.Request) {
 		err := r.ParseForm()
 		if err != nil {

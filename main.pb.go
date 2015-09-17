@@ -80,6 +80,8 @@ type Triple struct {
 	Lang   string `protobuf:"bytes,4,opt,name=lang" json:"lang,omitempty"`
 	Author string `protobuf:"bytes,5,opt,name=author" json:"author,omitempty"`
 	Sig    string `protobuf:"bytes,6,opt,name=sig" json:"sig,omitempty"`
+	// this is used for visualization purposes only.
+	Source string `protobuf:"bytes,7,opt,name=source" json:"source,omitempty"`
 }
 
 func (m *Triple) Reset()         { *m = Triple{} }
