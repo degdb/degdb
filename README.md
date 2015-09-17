@@ -3,7 +3,7 @@ Distributed Economic Graph Database
 
 [Design Doc/Ramble](https://docs.google.com/document/d/1Z1zUMOGzsBLOU1JoeY-CLFI9eSMajrnQraBvSybjP8I/edit)
 
-Initial implementation done at PennApps 2015 Spring.
+Initial implementation done at PennApps 2015 Fall.
 
 ## WTFQuery Language
 
