@@ -37,11 +37,16 @@ message QueryResponse {
   repeated Triple triples = 1;
 }
 
+// PeerRequest requests peers with the optional keyspace and limit.
 message PeerRequest {
   Keyspace keyspace = 1;
   int32 limit = 2;
 }
 
 message PeerResponse {
+  repeated Peer peers = 1;
+}
+
+message PeerNotify {
   repeated Peer peers = 1;
 }
