@@ -4,8 +4,8 @@ import (
 	"os"
 	"sync"
 
+	"github.com/d4l3k/go-disk-usage/du"
 	"github.com/jinzhu/gorm"
-	"github.com/ricochet2200/go-disk-usage/du"
 
 	_ "github.com/mattn/go-sqlite3"
 
