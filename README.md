@@ -5,6 +5,8 @@ Distributed Economic Graph Database
 
 Initial implementation done at PennApps 2015 Fall.
 
+There is a slow rewrite/redesign happening.
+
 ## WTFQuery Language
 
 This is a weird combination of Go syntax and other stuff. Due to efficiency, it's parsed using the Go parser library. Future changes include supporting Gremlin and other actual graph languages.
