@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/jinzhu/gorm"
+	"github.com/ricochet2200/go-disk-usage/du"
 
 	_ "github.com/mattn/go-sqlite3"
 
@@ -64,7 +65,7 @@ func Insert(triples []*protocol.Triple) int {
 
 // Info represents the state of the database.
 type Info struct {
-	Triples, DiskSize int64
+	Triples, DiskSize, AvailableSpace uint64
 }
 
 // Size returns an info object about the number of triples and file size of the
@@ -74,9 +75,12 @@ func Size() (*Info, error) {
 	if err != nil {
 		return nil, err
 	}
+	space := du.NewDiskUsage(dbFile)
 	i := &Info{
-		DiskSize: fileInfo.Size(),
+		DiskSize:       uint64(fileInfo.Size()),
+		AvailableSpace: space.Available(),
 	}
 	db.Model(&protocol.Triple{}).Count(&i.Triples)
+
 	return i, nil
 }

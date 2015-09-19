@@ -113,7 +113,7 @@ func TestTripleStore(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if info.Triples != int64(len(triples)) {
+	if info.Triples != uint64(len(triples)) {
 		t.Errorf("Size() = %#v; not %d", info, len(triples))
 	}
 }
