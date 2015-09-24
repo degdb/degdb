@@ -1,19 +1,14 @@
 syntax = "proto3";
 
-enum MessageType {
-  UNKNOWN = 0;
-  QUERY = 1;
-  PEER = 2;
-}
+message Message {
+  oneof message {
+    PeerRequest peer_request = 1;
+    PeerResponse peer_response = 2;
+    PeerNotify peer_notify = 3;
 
-message Request {
-  MessageType type = 1;
-  bytes message = 2;
-}
-
-message Response {
-  MessageType type = 1;
-  bytes message = 2;
+    QueryRequest query_request = 4;
+    QueryResponse query_response = 5;
+  }
 }
 
 message Triple {

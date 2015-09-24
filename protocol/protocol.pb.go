@@ -9,8 +9,7 @@
 		protocol.proto
 
 	It has these top-level messages:
-		Request
-		Response
+		Message
 		Triple
 		Peer
 		Keyspace
@@ -26,13 +25,10 @@ import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
 
-import strconv "strconv"
-
-import bytes "bytes"
-
 import strings "strings"
 import github_com_gogo_protobuf_proto "github.com/gogo/protobuf/proto"
 import sort "sort"
+import strconv "strconv"
 import reflect "reflect"
 
 import io "io"
@@ -42,40 +38,184 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
-type MessageType int32
-
-const (
-	UNKNOWN MessageType = 0
-	QUERY   MessageType = 1
-	PEER    MessageType = 2
-)
-
-var MessageType_name = map[int32]string{
-	0: "UNKNOWN",
-	1: "QUERY",
-	2: "PEER",
-}
-var MessageType_value = map[string]int32{
-	"UNKNOWN": 0,
-	"QUERY":   1,
-	"PEER":    2,
+type Message struct {
+	// Types that are valid to be assigned to Message:
+	//	*Message_PeerRequest
+	//	*Message_PeerResponse
+	//	*Message_PeerNotify
+	//	*Message_QueryRequest
+	//	*Message_QueryResponse
+	Message isMessage_Message `protobuf_oneof:"message"`
 }
 
-type Request struct {
-	Type    MessageType `protobuf:"varint,1,opt,name=type,proto3,enum=MessageType" json:"type,omitempty"`
-	Message []byte      `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+func (m *Message) Reset()      { *m = Message{} }
+func (*Message) ProtoMessage() {}
+
+type isMessage_Message interface {
+	isMessage_Message()
+	Equal(interface{}) bool
+	MarshalTo([]byte) (int, error)
+	Size() int
 }
 
-func (m *Request) Reset()      { *m = Request{} }
-func (*Request) ProtoMessage() {}
-
-type Response struct {
-	Type    MessageType `protobuf:"varint,1,opt,name=type,proto3,enum=MessageType" json:"type,omitempty"`
-	Message []byte      `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+type Message_PeerRequest struct {
+	PeerRequest *PeerRequest `protobuf:"bytes,1,opt,name=peer_request,oneof"`
+}
+type Message_PeerResponse struct {
+	PeerResponse *PeerResponse `protobuf:"bytes,2,opt,name=peer_response,oneof"`
+}
+type Message_PeerNotify struct {
+	PeerNotify *PeerNotify `protobuf:"bytes,3,opt,name=peer_notify,oneof"`
+}
+type Message_QueryRequest struct {
+	QueryRequest *QueryRequest `protobuf:"bytes,4,opt,name=query_request,oneof"`
+}
+type Message_QueryResponse struct {
+	QueryResponse *QueryResponse `protobuf:"bytes,5,opt,name=query_response,oneof"`
 }
 
-func (m *Response) Reset()      { *m = Response{} }
-func (*Response) ProtoMessage() {}
+func (*Message_PeerRequest) isMessage_Message()   {}
+func (*Message_PeerResponse) isMessage_Message()  {}
+func (*Message_PeerNotify) isMessage_Message()    {}
+func (*Message_QueryRequest) isMessage_Message()  {}
+func (*Message_QueryResponse) isMessage_Message() {}
+
+func (m *Message) GetMessage() isMessage_Message {
+	if m != nil {
+		return m.Message
+	}
+	return nil
+}
+
+func (m *Message) GetPeerRequest() *PeerRequest {
+	if x, ok := m.GetMessage().(*Message_PeerRequest); ok {
+		return x.PeerRequest
+	}
+	return nil
+}
+
+func (m *Message) GetPeerResponse() *PeerResponse {
+	if x, ok := m.GetMessage().(*Message_PeerResponse); ok {
+		return x.PeerResponse
+	}
+	return nil
+}
+
+func (m *Message) GetPeerNotify() *PeerNotify {
+	if x, ok := m.GetMessage().(*Message_PeerNotify); ok {
+		return x.PeerNotify
+	}
+	return nil
+}
+
+func (m *Message) GetQueryRequest() *QueryRequest {
+	if x, ok := m.GetMessage().(*Message_QueryRequest); ok {
+		return x.QueryRequest
+	}
+	return nil
+}
+
+func (m *Message) GetQueryResponse() *QueryResponse {
+	if x, ok := m.GetMessage().(*Message_QueryResponse); ok {
+		return x.QueryResponse
+	}
+	return nil
+}
+
+// XXX_OneofFuncs is for the internal use of the proto package.
+func (*Message) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), []interface{}) {
+	return _Message_OneofMarshaler, _Message_OneofUnmarshaler, []interface{}{
+		(*Message_PeerRequest)(nil),
+		(*Message_PeerResponse)(nil),
+		(*Message_PeerNotify)(nil),
+		(*Message_QueryRequest)(nil),
+		(*Message_QueryResponse)(nil),
+	}
+}
+
+func _Message_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*Message)
+	// message
+	switch x := m.Message.(type) {
+	case *Message_PeerRequest:
+		_ = b.EncodeVarint(1<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.PeerRequest); err != nil {
+			return err
+		}
+	case *Message_PeerResponse:
+		_ = b.EncodeVarint(2<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.PeerResponse); err != nil {
+			return err
+		}
+	case *Message_PeerNotify:
+		_ = b.EncodeVarint(3<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.PeerNotify); err != nil {
+			return err
+		}
+	case *Message_QueryRequest:
+		_ = b.EncodeVarint(4<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.QueryRequest); err != nil {
+			return err
+		}
+	case *Message_QueryResponse:
+		_ = b.EncodeVarint(5<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.QueryResponse); err != nil {
+			return err
+		}
+	case nil:
+	default:
+		return fmt.Errorf("Message.Message has unexpected type %T", x)
+	}
+	return nil
+}
+
+func _Message_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*Message)
+	switch tag {
+	case 1: // message.peer_request
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(PeerRequest)
+		err := b.DecodeMessage(msg)
+		m.Message = &Message_PeerRequest{msg}
+		return true, err
+	case 2: // message.peer_response
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(PeerResponse)
+		err := b.DecodeMessage(msg)
+		m.Message = &Message_PeerResponse{msg}
+		return true, err
+	case 3: // message.peer_notify
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(PeerNotify)
+		err := b.DecodeMessage(msg)
+		m.Message = &Message_PeerNotify{msg}
+		return true, err
+	case 4: // message.query_request
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(QueryRequest)
+		err := b.DecodeMessage(msg)
+		m.Message = &Message_QueryRequest{msg}
+		return true, err
+	case 5: // message.query_response
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(QueryResponse)
+		err := b.DecodeMessage(msg)
+		m.Message = &Message_QueryResponse{msg}
+		return true, err
+	default:
+		return false, nil
+	}
+}
 
 type Triple struct {
 	Subj   string `protobuf:"bytes,1,opt,name=subj,proto3" json:"subj,omitempty"`
@@ -199,17 +339,7 @@ func (m *PeerNotify) GetPeers() []*Peer {
 	return nil
 }
 
-func init() {
-	proto.RegisterEnum("MessageType", MessageType_name, MessageType_value)
-}
-func (x MessageType) String() string {
-	s, ok := MessageType_name[int32(x)]
-	if ok {
-		return s
-	}
-	return strconv.Itoa(int(x))
-}
-func (this *Request) Equal(that interface{}) bool {
+func (this *Message) Equal(that interface{}) bool {
 	if that == nil {
 		if this == nil {
 			return true
@@ -217,7 +347,7 @@ func (this *Request) Equal(that interface{}) bool {
 		return false
 	}
 
-	that1, ok := that.(*Request)
+	that1, ok := that.(*Message)
 	if !ok {
 		return false
 	}
@@ -229,15 +359,18 @@ func (this *Request) Equal(that interface{}) bool {
 	} else if this == nil {
 		return false
 	}
-	if this.Type != that1.Type {
+	if that1.Message == nil {
+		if this.Message != nil {
+			return false
+		}
+	} else if this.Message == nil {
 		return false
-	}
-	if !bytes.Equal(this.Message, that1.Message) {
+	} else if !this.Message.Equal(that1.Message) {
 		return false
 	}
 	return true
 }
-func (this *Response) Equal(that interface{}) bool {
+func (this *Message_PeerRequest) Equal(that interface{}) bool {
 	if that == nil {
 		if this == nil {
 			return true
@@ -245,7 +378,7 @@ func (this *Response) Equal(that interface{}) bool {
 		return false
 	}
 
-	that1, ok := that.(*Response)
+	that1, ok := that.(*Message_PeerRequest)
 	if !ok {
 		return false
 	}
@@ -257,10 +390,107 @@ func (this *Response) Equal(that interface{}) bool {
 	} else if this == nil {
 		return false
 	}
-	if this.Type != that1.Type {
+	if !this.PeerRequest.Equal(that1.PeerRequest) {
 		return false
 	}
-	if !bytes.Equal(this.Message, that1.Message) {
+	return true
+}
+func (this *Message_PeerResponse) Equal(that interface{}) bool {
+	if that == nil {
+		if this == nil {
+			return true
+		}
+		return false
+	}
+
+	that1, ok := that.(*Message_PeerResponse)
+	if !ok {
+		return false
+	}
+	if that1 == nil {
+		if this == nil {
+			return true
+		}
+		return false
+	} else if this == nil {
+		return false
+	}
+	if !this.PeerResponse.Equal(that1.PeerResponse) {
+		return false
+	}
+	return true
+}
+func (this *Message_PeerNotify) Equal(that interface{}) bool {
+	if that == nil {
+		if this == nil {
+			return true
+		}
+		return false
+	}
+
+	that1, ok := that.(*Message_PeerNotify)
+	if !ok {
+		return false
+	}
+	if that1 == nil {
+		if this == nil {
+			return true
+		}
+		return false
+	} else if this == nil {
+		return false
+	}
+	if !this.PeerNotify.Equal(that1.PeerNotify) {
+		return false
+	}
+	return true
+}
+func (this *Message_QueryRequest) Equal(that interface{}) bool {
+	if that == nil {
+		if this == nil {
+			return true
+		}
+		return false
+	}
+
+	that1, ok := that.(*Message_QueryRequest)
+	if !ok {
+		return false
+	}
+	if that1 == nil {
+		if this == nil {
+			return true
+		}
+		return false
+	} else if this == nil {
+		return false
+	}
+	if !this.QueryRequest.Equal(that1.QueryRequest) {
+		return false
+	}
+	return true
+}
+func (this *Message_QueryResponse) Equal(that interface{}) bool {
+	if that == nil {
+		if this == nil {
+			return true
+		}
+		return false
+	}
+
+	that1, ok := that.(*Message_QueryResponse)
+	if !ok {
+		return false
+	}
+	if that1 == nil {
+		if this == nil {
+			return true
+		}
+		return false
+	} else if this == nil {
+		return false
+	}
+	if !this.QueryResponse.Equal(that1.QueryResponse) {
 		return false
 	}
 	return true
@@ -510,27 +740,57 @@ func (this *PeerNotify) Equal(that interface{}) bool {
 	}
 	return true
 }
-func (this *Request) GoString() string {
+func (this *Message) GoString() string {
 	if this == nil {
 		return "nil"
 	}
-	s := make([]string, 0, 6)
-	s = append(s, "&protocol.Request{")
-	s = append(s, "Type: "+fmt.Sprintf("%#v", this.Type)+",\n")
-	s = append(s, "Message: "+fmt.Sprintf("%#v", this.Message)+",\n")
+	s := make([]string, 0, 9)
+	s = append(s, "&protocol.Message{")
+	if this.Message != nil {
+		s = append(s, "Message: "+fmt.Sprintf("%#v", this.Message)+",\n")
+	}
 	s = append(s, "}")
 	return strings.Join(s, "")
 }
-func (this *Response) GoString() string {
+func (this *Message_PeerRequest) GoString() string {
 	if this == nil {
 		return "nil"
 	}
-	s := make([]string, 0, 6)
-	s = append(s, "&protocol.Response{")
-	s = append(s, "Type: "+fmt.Sprintf("%#v", this.Type)+",\n")
-	s = append(s, "Message: "+fmt.Sprintf("%#v", this.Message)+",\n")
-	s = append(s, "}")
-	return strings.Join(s, "")
+	s := strings.Join([]string{`&protocol.Message_PeerRequest{` +
+		`PeerRequest:` + fmt.Sprintf("%#v", this.PeerRequest) + `}`}, ", ")
+	return s
+}
+func (this *Message_PeerResponse) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&protocol.Message_PeerResponse{` +
+		`PeerResponse:` + fmt.Sprintf("%#v", this.PeerResponse) + `}`}, ", ")
+	return s
+}
+func (this *Message_PeerNotify) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&protocol.Message_PeerNotify{` +
+		`PeerNotify:` + fmt.Sprintf("%#v", this.PeerNotify) + `}`}, ", ")
+	return s
+}
+func (this *Message_QueryRequest) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&protocol.Message_QueryRequest{` +
+		`QueryRequest:` + fmt.Sprintf("%#v", this.QueryRequest) + `}`}, ", ")
+	return s
+}
+func (this *Message_QueryResponse) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&protocol.Message_QueryResponse{` +
+		`QueryResponse:` + fmt.Sprintf("%#v", this.QueryResponse) + `}`}, ", ")
+	return s
 }
 func (this *Triple) GoString() string {
 	if this == nil {
@@ -661,7 +921,7 @@ func extensionToGoStringProtocol(e map[int32]github_com_gogo_protobuf_proto.Exte
 	s += strings.Join(ss, ",") + "}"
 	return s
 }
-func (m *Request) Marshal() (data []byte, err error) {
+func (m *Message) Marshal() (data []byte, err error) {
 	size := m.Size()
 	data = make([]byte, size)
 	n, err := m.MarshalTo(data)
@@ -671,58 +931,91 @@ func (m *Request) Marshal() (data []byte, err error) {
 	return data[:n], nil
 }
 
-func (m *Request) MarshalTo(data []byte) (int, error) {
+func (m *Message) MarshalTo(data []byte) (int, error) {
 	var i int
 	_ = i
 	var l int
 	_ = l
-	if m.Type != 0 {
-		data[i] = 0x8
-		i++
-		i = encodeVarintProtocol(data, i, uint64(m.Type))
-	}
 	if m.Message != nil {
-		if len(m.Message) > 0 {
-			data[i] = 0x12
-			i++
-			i = encodeVarintProtocol(data, i, uint64(len(m.Message)))
-			i += copy(data[i:], m.Message)
+		nn1, err := m.Message.MarshalTo(data[i:])
+		if err != nil {
+			return 0, err
 		}
+		i += nn1
 	}
 	return i, nil
 }
 
-func (m *Response) Marshal() (data []byte, err error) {
-	size := m.Size()
-	data = make([]byte, size)
-	n, err := m.MarshalTo(data)
-	if err != nil {
-		return nil, err
-	}
-	return data[:n], nil
-}
-
-func (m *Response) MarshalTo(data []byte) (int, error) {
-	var i int
-	_ = i
-	var l int
-	_ = l
-	if m.Type != 0 {
-		data[i] = 0x8
+func (m *Message_PeerRequest) MarshalTo(data []byte) (int, error) {
+	i := 0
+	if m.PeerRequest != nil {
+		data[i] = 0xa
 		i++
-		i = encodeVarintProtocol(data, i, uint64(m.Type))
-	}
-	if m.Message != nil {
-		if len(m.Message) > 0 {
-			data[i] = 0x12
-			i++
-			i = encodeVarintProtocol(data, i, uint64(len(m.Message)))
-			i += copy(data[i:], m.Message)
+		i = encodeVarintProtocol(data, i, uint64(m.PeerRequest.Size()))
+		n2, err := m.PeerRequest.MarshalTo(data[i:])
+		if err != nil {
+			return 0, err
 		}
+		i += n2
 	}
 	return i, nil
 }
-
+func (m *Message_PeerResponse) MarshalTo(data []byte) (int, error) {
+	i := 0
+	if m.PeerResponse != nil {
+		data[i] = 0x12
+		i++
+		i = encodeVarintProtocol(data, i, uint64(m.PeerResponse.Size()))
+		n3, err := m.PeerResponse.MarshalTo(data[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n3
+	}
+	return i, nil
+}
+func (m *Message_PeerNotify) MarshalTo(data []byte) (int, error) {
+	i := 0
+	if m.PeerNotify != nil {
+		data[i] = 0x1a
+		i++
+		i = encodeVarintProtocol(data, i, uint64(m.PeerNotify.Size()))
+		n4, err := m.PeerNotify.MarshalTo(data[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n4
+	}
+	return i, nil
+}
+func (m *Message_QueryRequest) MarshalTo(data []byte) (int, error) {
+	i := 0
+	if m.QueryRequest != nil {
+		data[i] = 0x22
+		i++
+		i = encodeVarintProtocol(data, i, uint64(m.QueryRequest.Size()))
+		n5, err := m.QueryRequest.MarshalTo(data[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n5
+	}
+	return i, nil
+}
+func (m *Message_QueryResponse) MarshalTo(data []byte) (int, error) {
+	i := 0
+	if m.QueryResponse != nil {
+		data[i] = 0x2a
+		i++
+		i = encodeVarintProtocol(data, i, uint64(m.QueryResponse.Size()))
+		n6, err := m.QueryResponse.MarshalTo(data[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n6
+	}
+	return i, nil
+}
 func (m *Triple) Marshal() (data []byte, err error) {
 	size := m.Size()
 	data = make([]byte, size)
@@ -802,11 +1095,11 @@ func (m *Peer) MarshalTo(data []byte) (int, error) {
 		data[i] = 0x12
 		i++
 		i = encodeVarintProtocol(data, i, uint64(m.Keyspace.Size()))
-		n1, err := m.Keyspace.MarshalTo(data[i:])
+		n7, err := m.Keyspace.MarshalTo(data[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n1
+		i += n7
 	}
 	return i, nil
 }
@@ -858,11 +1151,11 @@ func (m *QueryRequest) MarshalTo(data []byte) (int, error) {
 		data[i] = 0xa
 		i++
 		i = encodeVarintProtocol(data, i, uint64(m.Filter.Size()))
-		n2, err := m.Filter.MarshalTo(data[i:])
+		n8, err := m.Filter.MarshalTo(data[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n2
+		i += n8
 	}
 	if m.Limit != 0 {
 		data[i] = 0x10
@@ -873,11 +1166,11 @@ func (m *QueryRequest) MarshalTo(data []byte) (int, error) {
 		data[i] = 0x1a
 		i++
 		i = encodeVarintProtocol(data, i, uint64(m.Keyspace.Size()))
-		n3, err := m.Keyspace.MarshalTo(data[i:])
+		n9, err := m.Keyspace.MarshalTo(data[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n3
+		i += n9
 	}
 	return i, nil
 }
@@ -931,11 +1224,11 @@ func (m *PeerRequest) MarshalTo(data []byte) (int, error) {
 		data[i] = 0xa
 		i++
 		i = encodeVarintProtocol(data, i, uint64(m.Keyspace.Size()))
-		n4, err := m.Keyspace.MarshalTo(data[i:])
+		n10, err := m.Keyspace.MarshalTo(data[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n4
+		i += n10
 	}
 	if m.Limit != 0 {
 		data[i] = 0x10
@@ -1032,36 +1325,60 @@ func encodeVarintProtocol(data []byte, offset int, v uint64) int {
 	data[offset] = uint8(v)
 	return offset + 1
 }
-func (m *Request) Size() (n int) {
+func (m *Message) Size() (n int) {
 	var l int
 	_ = l
-	if m.Type != 0 {
-		n += 1 + sovProtocol(uint64(m.Type))
-	}
 	if m.Message != nil {
-		l = len(m.Message)
-		if l > 0 {
-			n += 1 + l + sovProtocol(uint64(l))
-		}
+		n += m.Message.Size()
 	}
 	return n
 }
 
-func (m *Response) Size() (n int) {
+func (m *Message_PeerRequest) Size() (n int) {
 	var l int
 	_ = l
-	if m.Type != 0 {
-		n += 1 + sovProtocol(uint64(m.Type))
-	}
-	if m.Message != nil {
-		l = len(m.Message)
-		if l > 0 {
-			n += 1 + l + sovProtocol(uint64(l))
-		}
+	if m.PeerRequest != nil {
+		l = m.PeerRequest.Size()
+		n += 1 + l + sovProtocol(uint64(l))
 	}
 	return n
 }
-
+func (m *Message_PeerResponse) Size() (n int) {
+	var l int
+	_ = l
+	if m.PeerResponse != nil {
+		l = m.PeerResponse.Size()
+		n += 1 + l + sovProtocol(uint64(l))
+	}
+	return n
+}
+func (m *Message_PeerNotify) Size() (n int) {
+	var l int
+	_ = l
+	if m.PeerNotify != nil {
+		l = m.PeerNotify.Size()
+		n += 1 + l + sovProtocol(uint64(l))
+	}
+	return n
+}
+func (m *Message_QueryRequest) Size() (n int) {
+	var l int
+	_ = l
+	if m.QueryRequest != nil {
+		l = m.QueryRequest.Size()
+		n += 1 + l + sovProtocol(uint64(l))
+	}
+	return n
+}
+func (m *Message_QueryResponse) Size() (n int) {
+	var l int
+	_ = l
+	if m.QueryResponse != nil {
+		l = m.QueryResponse.Size()
+		n += 1 + l + sovProtocol(uint64(l))
+	}
+	return n
+}
 func (m *Triple) Size() (n int) {
 	var l int
 	_ = l
@@ -1197,24 +1514,62 @@ func sovProtocol(x uint64) (n int) {
 func sozProtocol(x uint64) (n int) {
 	return sovProtocol(uint64((x << 1) ^ uint64((int64(x) >> 63))))
 }
-func (this *Request) String() string {
+func (this *Message) String() string {
 	if this == nil {
 		return "nil"
 	}
-	s := strings.Join([]string{`&Request{`,
-		`Type:` + fmt.Sprintf("%v", this.Type) + `,`,
+	s := strings.Join([]string{`&Message{`,
 		`Message:` + fmt.Sprintf("%v", this.Message) + `,`,
 		`}`,
 	}, "")
 	return s
 }
-func (this *Response) String() string {
+func (this *Message_PeerRequest) String() string {
 	if this == nil {
 		return "nil"
 	}
-	s := strings.Join([]string{`&Response{`,
-		`Type:` + fmt.Sprintf("%v", this.Type) + `,`,
-		`Message:` + fmt.Sprintf("%v", this.Message) + `,`,
+	s := strings.Join([]string{`&Message_PeerRequest{`,
+		`PeerRequest:` + strings.Replace(fmt.Sprintf("%v", this.PeerRequest), "PeerRequest", "PeerRequest", 1) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *Message_PeerResponse) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&Message_PeerResponse{`,
+		`PeerResponse:` + strings.Replace(fmt.Sprintf("%v", this.PeerResponse), "PeerResponse", "PeerResponse", 1) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *Message_PeerNotify) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&Message_PeerNotify{`,
+		`PeerNotify:` + strings.Replace(fmt.Sprintf("%v", this.PeerNotify), "PeerNotify", "PeerNotify", 1) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *Message_QueryRequest) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&Message_QueryRequest{`,
+		`QueryRequest:` + strings.Replace(fmt.Sprintf("%v", this.QueryRequest), "QueryRequest", "QueryRequest", 1) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *Message_QueryResponse) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&Message_QueryResponse{`,
+		`QueryResponse:` + strings.Replace(fmt.Sprintf("%v", this.QueryResponse), "QueryResponse", "QueryResponse", 1) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -1317,7 +1672,7 @@ func valueToStringProtocol(v interface{}) string {
 	pv := reflect.Indirect(rv).Interface()
 	return fmt.Sprintf("*%v", pv)
 }
-func (m *Request) Unmarshal(data []byte) error {
+func (m *Message) Unmarshal(data []byte) error {
 	l := len(data)
 	iNdEx := 0
 	for iNdEx < l {
@@ -1340,36 +1695,17 @@ func (m *Request) Unmarshal(data []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: Request: wiretype end group for non-group")
+			return fmt.Errorf("proto: Message: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: Request: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: Message: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Type", wireType)
-			}
-			m.Type = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowProtocol
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := data[iNdEx]
-				iNdEx++
-				m.Type |= (MessageType(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		case 2:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Message", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field PeerRequest", wireType)
 			}
-			var byteLen int
+			var msglen int
 			for shift := uint(0); ; shift += 7 {
 				if shift >= 64 {
 					return ErrIntOverflowProtocol
@@ -1379,94 +1715,29 @@ func (m *Request) Unmarshal(data []byte) error {
 				}
 				b := data[iNdEx]
 				iNdEx++
-				byteLen |= (int(b) & 0x7F) << shift
+				msglen |= (int(b) & 0x7F) << shift
 				if b < 0x80 {
 					break
 				}
 			}
-			if byteLen < 0 {
+			if msglen < 0 {
 				return ErrInvalidLengthProtocol
 			}
-			postIndex := iNdEx + byteLen
+			postIndex := iNdEx + msglen
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Message = append([]byte{}, data[iNdEx:postIndex]...)
-			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipProtocol(data[iNdEx:])
-			if err != nil {
+			v := &PeerRequest{}
+			if err := v.Unmarshal(data[iNdEx:postIndex]); err != nil {
 				return err
 			}
-			if skippy < 0 {
-				return ErrInvalidLengthProtocol
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *Response) Unmarshal(data []byte) error {
-	l := len(data)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowProtocol
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := data[iNdEx]
-			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: Response: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: Response: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Type", wireType)
-			}
-			m.Type = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowProtocol
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := data[iNdEx]
-				iNdEx++
-				m.Type |= (MessageType(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
+			m.Message = &Message_PeerRequest{v}
+			iNdEx = postIndex
 		case 2:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Message", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field PeerResponse", wireType)
 			}
-			var byteLen int
+			var msglen int
 			for shift := uint(0); ; shift += 7 {
 				if shift >= 64 {
 					return ErrIntOverflowProtocol
@@ -1476,19 +1747,119 @@ func (m *Response) Unmarshal(data []byte) error {
 				}
 				b := data[iNdEx]
 				iNdEx++
-				byteLen |= (int(b) & 0x7F) << shift
+				msglen |= (int(b) & 0x7F) << shift
 				if b < 0x80 {
 					break
 				}
 			}
-			if byteLen < 0 {
+			if msglen < 0 {
 				return ErrInvalidLengthProtocol
 			}
-			postIndex := iNdEx + byteLen
+			postIndex := iNdEx + msglen
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Message = append([]byte{}, data[iNdEx:postIndex]...)
+			v := &PeerResponse{}
+			if err := v.Unmarshal(data[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.Message = &Message_PeerResponse{v}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field PeerNotify", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowProtocol
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthProtocol
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &PeerNotify{}
+			if err := v.Unmarshal(data[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.Message = &Message_PeerNotify{v}
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field QueryRequest", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowProtocol
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthProtocol
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &QueryRequest{}
+			if err := v.Unmarshal(data[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.Message = &Message_QueryRequest{v}
+			iNdEx = postIndex
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field QueryResponse", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowProtocol
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthProtocol
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &QueryResponse{}
+			if err := v.Unmarshal(data[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.Message = &Message_QueryResponse{v}
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
