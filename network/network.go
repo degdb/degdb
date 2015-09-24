@@ -13,6 +13,7 @@ import (
 	"github.com/degdb/degdb/protocol"
 )
 
+// Server handles all network traffic.
 type Server struct {
 	IP   string
 	Port int
@@ -26,6 +27,7 @@ type Conn struct {
 	net.Conn
 }
 
+// Send a message to the specified connection.
 func (c *Conn) Send(m *protocol.Message) error {
 	msg, err := m.Marshal()
 	if err != nil {
@@ -60,6 +62,7 @@ func (s *Server) Connect(addr string) error {
 	return s.handleConnection(&Conn{conn})
 }
 
+// Listen for incoming connections on the specified port.
 func (s *Server) Listen(port int) error {
 	s.Port = port
 	ln, err := net.Listen("tcp", "0.0.0.0:"+strconv.Itoa(s.Port))
