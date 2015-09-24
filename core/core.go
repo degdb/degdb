@@ -1,3 +1,4 @@
+// Package core contains the rewritten degdb code.
 package core
 
 import (

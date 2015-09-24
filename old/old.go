@@ -1,3 +1,4 @@
+// Package old contains the initial implementation of degdb. DEPRECATED
 package old
 
 import (

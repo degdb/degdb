@@ -1,3 +1,5 @@
+// Package triplestore provides utilities for saving and querying triples with
+// a sqlite3 backend.
 package triplestore
 
 import (

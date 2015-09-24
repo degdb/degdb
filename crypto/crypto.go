@@ -1,3 +1,4 @@
+// Package crypto provides helpers for handling cryptographic keys and signing triples.
 package crypto
 
 import (
