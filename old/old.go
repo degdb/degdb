@@ -576,26 +576,27 @@ func Main() {
 		fmt.Fprint(w, "file not found ", r.URL.String())
 	})
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
-	http.HandleFunc("/api/v1/query2", func(w http.ResponseWriter, r *http.Request) {
-		err := r.ParseForm()
-		if err != nil {
-			http.Error(w, err.Error(), 400)
-			return
-		}
-		q := r.FormValue("q")
-		l := r.FormValue("lang")
-		log.Printf("Query: %s, Lang: %s", q, l)
-		output, err := runQuery(l, q)
-		if err != nil {
-			http.Error(w, err.Error(), 400)
-			return
-		}
-		err = json.NewEncoder(w).Encode(output)
-		if err != nil {
-			http.Error(w, err.Error(), 500)
-			return
-		}
-	})
+	/*
+		http.HandleFunc("/api/v1/query2", func(w http.ResponseWriter, r *http.Request) {
+			err := r.ParseForm()
+			if err != nil {
+				http.Error(w, err.Error(), 400)
+				return
+			}
+			q := r.FormValue("q")
+			l := r.FormValue("lang")
+			log.Printf("Query: %s, Lang: %s", q, l)
+			output, err := runQuery(l, q)
+			if err != nil {
+				http.Error(w, err.Error(), 400)
+				return
+			}
+			err = json.NewEncoder(w).Encode(output)
+			if err != nil {
+				http.Error(w, err.Error(), 500)
+				return
+			}
+		})*/
 
 	http.HandleFunc("/api/v1/query", func(w http.ResponseWriter, r *http.Request) {
 		err := r.ParseForm()
