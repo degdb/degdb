@@ -31,7 +31,6 @@ import (
 //go:generate protoc --go_out=. old.proto
 
 var peerAddr = flag.String("peer", "", "The peer address to bootstrap off. Can use multiple seperated by ;")
-var bindPort = flag.Int("port", 7946, "The port to bind on.")
 var bindAddr = flag.String("hostname", "", "The hostname to use.")
 var advertiseAddr = flag.String("advertiseAddr", "", "The address to advertise the server on.")
 var webAddr = flag.String("webAddr", ":8080", "The bin address for the webserver.")
@@ -508,14 +507,14 @@ func executeQuery(q *Query) ([]*Triple, error) {
 
 var server *Node
 
-func Main() {
+func Main(port int) {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	flag.Parse()
 
 	del := &delegate{}
 	config := memberlist.DefaultWANConfig()
 	config.Delegate = del
-	config.BindPort = *bindPort
+	config.BindPort = port
 	if len(*bindAddr) > 0 {
 		config.Name = *bindAddr
 	}

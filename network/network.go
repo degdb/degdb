@@ -2,10 +2,11 @@
 package network
 
 import (
-	"bufio"
+	"encoding/binary"
 	"fmt"
 	"log"
 	"net"
+	"net/http"
 	"reflect"
 	"strconv"
 
@@ -19,37 +20,36 @@ type Server struct {
 	Port int
 	NAT  stun.NATType
 
+	HTTP *http.Server
+	Mux  *http.ServeMux
+
 	handlers map[string]func(*protocol.Message)
-}
-
-// Conn is a net.Conn with extensions.
-type Conn struct {
-	net.Conn
-}
-
-// Send a message to the specified connection.
-func (c *Conn) Send(m *protocol.Message) error {
-	msg, err := m.Marshal()
-	if err != nil {
-		return err
-	}
-	msg = append(msg, '\n')
-	_, err = c.Write(msg)
-	if err != nil {
-		return err
-	}
-	return nil
+	listener *httpListener
+	*log.Logger
 }
 
 // NewServer creates a new server with routing information.
-func NewServer() (*Server, error) {
-	s := &Server{}
+func NewServer(log *log.Logger) (*Server, error) {
+	s := &Server{Logger: log}
+
+	// TODO(d4l3k): Fetch IP by talking to other nodes.
 	nat, host, err := stun.NewClient().Discover()
 	if err != nil {
 		return nil, err
 	}
 	s.IP = host.IP()
 	s.NAT = nat
+
+	tcpAddr, err := net.ResolveTCPAddr("tcp", host.TransportAddr())
+	if err != nil {
+		return nil, err
+	}
+	s.listener = &httpListener{
+		addr:   tcpAddr,
+		accept: make(chan *httpConn, 10),
+	}
+	s.Mux = http.NewServeMux()
+	s.HTTP = &http.Server{Handler: s.Mux}
 	return s, nil
 }
 
@@ -69,7 +69,8 @@ func (s *Server) Listen(port int) error {
 	if err != nil {
 		return err
 	}
-	log.Printf("Listening: 0.0.0.0:%d, ip: %s", s.Port, s.IP)
+	go s.listenHTTP()
+	s.Printf("Listening: 0.0.0.0:%d, ip: %s", s.Port, s.IP)
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
@@ -87,17 +88,34 @@ func (s *Server) Handle(typ string, f func(message *protocol.Message)) {
 func (s *Server) handleConnection(conn *Conn) error {
 	var err error
 	for {
-		var buf []byte
-		buf, err = bufio.NewReader(conn).ReadSlice('\n')
+		header := make([]byte, 4)
+		_, err = conn.Read(header)
 		if err != nil {
-			return err
+			break
 		}
+		if string(header) == "GET " {
+			s.Printf("Incoming HTTP connection.")
+			s.handleHTTPConnection(header, conn)
+			return nil
+		}
+		length := binary.BigEndian.Uint32(header)
+		if length > 10000000 {
+			err = fmt.Errorf("Packet larger than 10MB! len = %d", length)
+			break
+		}
+		buf := make([]byte, length)
+		_, err = conn.Read(buf)
+		if err != nil {
+			break
+		}
+
+		s.Printf("message %s", buf)
 		req := &protocol.Message{}
 		if err = req.Unmarshal(buf); err != nil {
 			break
 		}
 		typ := reflect.TypeOf(req).Name()
-		log.Printf("Message: type = %s, len = %d", typ, len(buf))
+		s.Printf("Message: type = %s, len = %d", typ, len(buf))
 		handler, ok := s.handlers[typ]
 		if !ok {
 			err = fmt.Errorf("no handler for message type %s", typ)
@@ -107,9 +125,31 @@ func (s *Server) handleConnection(conn *Conn) error {
 
 	}
 	if err != nil {
-		log.Printf("Connection closed. Error: %s", err.Error())
+		s.Printf("Connection closed. Error: %s", err.Error())
 	} else {
-		log.Printf("Connection closed.")
+		s.Printf("Connection closed.")
 	}
+	conn.Close()
 	return err
+}
+
+// Conn is a net.Conn with extensions.
+type Conn struct {
+	net.Conn
+}
+
+// Send a message to the specified connection.
+func (c *Conn) Send(m *protocol.Message) error {
+	msg, err := m.Marshal()
+	if err != nil {
+		return err
+	}
+	packet := make([]byte, len(msg)+4)
+	binary.BigEndian.PutUint32(packet, uint32(len(msg)))
+	copy(packet[4:], msg)
+	_, err = c.Write(packet)
+	if err != nil {
+		return err
+	}
+	return nil
 }
