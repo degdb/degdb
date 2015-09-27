@@ -9,25 +9,33 @@ import (
 	"github.com/degdb/degdb/network"
 )
 
+type server struct {
+	diskAllocated int
+	network       *network.Server
+
+	*log.Logger
+}
+
 func Main(port int, peers []string, diskAllocated int) {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	log := log.New(os.Stderr, ":"+strconv.Itoa(port), log.Flags())
+	s := &server{
+		Logger:        log.New(os.Stderr, ":"+strconv.Itoa(port)+" ", log.Flags()),
+		diskAllocated: diskAllocated,
+	}
 
-	log.Printf("Initializing...")
-	s, err := network.NewServer(log)
+	s.Printf("Initializing...")
+	s.Printf("Allocated %d bytes.", diskAllocated)
+
+	ns, err := network.NewServer(s.Logger)
 	if err != nil {
 		s.Fatal(err)
 	}
+	s.network = ns
 
-	log.Printf("Allocated %d bytes.", diskAllocated)
-
-	go setup(s, peers)
-	s.Fatal(s.Listen(port))
-}
-
-func setup(s *network.Server, peers []string) {
 	for _, peer := range peers {
-		log.Printf("Connecting to peer %s", peer)
-		s.Connect(peer)
+		s.Printf("Connecting to peer %s", peer)
+		s.network.Connect(peer)
 	}
+
+	s.Fatal(s.network.Listen(port))
 }

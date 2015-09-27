@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"reflect"
 	"strconv"
+	"sync"
 
 	"github.com/ccding/go-stun/stun"
 	"github.com/degdb/degdb/protocol"
@@ -28,15 +29,36 @@ type Server struct {
 	*log.Logger
 }
 
+var (
+	stunOnce sync.Once
+	stunWG   sync.WaitGroup
+	nat      stun.NATType
+	host     *stun.Host
+)
+
+func init() {
+	stunWG.Add(1)
+}
+
+func stunResults() {
+	stunOnce.Do(func() {
+		var err error
+		// TODO(d4l3k): Fetch IP by talking to other nodes.
+		nat, host, err = stun.NewClient().Discover()
+		if err != nil {
+			log.Fatal(err)
+		}
+		stunWG.Done()
+	})
+	stunWG.Wait()
+}
+
 // NewServer creates a new server with routing information.
 func NewServer(log *log.Logger) (*Server, error) {
 	s := &Server{Logger: log}
 
-	// TODO(d4l3k): Fetch IP by talking to other nodes.
-	nat, host, err := stun.NewClient().Discover()
-	if err != nil {
-		return nil, err
-	}
+	stunResults()
+
 	s.IP = host.IP()
 	s.NAT = nat
 
