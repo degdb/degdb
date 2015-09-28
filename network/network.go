@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"reflect"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/ccding/go-stun/stun"
@@ -24,10 +25,12 @@ type Server struct {
 	HTTP *http.Server
 	Mux  *http.ServeMux
 
-	handlers map[string]func(*protocol.Message)
+	handlers map[string]protocolHandler
 	listener *httpListener
 	*log.Logger
 }
+
+type protocolHandler func(conn *Conn, msg *protocol.Message)
 
 var (
 	stunOnce sync.Once
@@ -44,7 +47,8 @@ func stunResults() {
 	stunOnce.Do(func() {
 		var err error
 		// TODO(d4l3k): Fetch IP by talking to other nodes.
-		nat, host, err = stun.NewClient().Discover()
+		stunc := stun.NewClient()
+		nat, host, err = stunc.Discover()
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -55,7 +59,10 @@ func stunResults() {
 
 // NewServer creates a new server with routing information.
 func NewServer(log *log.Logger) (*Server, error) {
-	s := &Server{Logger: log}
+	s := &Server{
+		Logger:   log,
+		handlers: make(map[string]protocolHandler),
+	}
 
 	stunResults()
 
@@ -77,10 +84,20 @@ func NewServer(log *log.Logger) (*Server, error) {
 
 // Connect to another server. `addr` should be in the format "google.com:80".
 func (s *Server) Connect(addr string) error {
-	conn, err := net.Dial("tcp", addr)
+	tcpConn, err := net.Dial("tcp", addr)
 	if err != nil {
 		return err
 	}
+	conn := &Conn{tcpConn}
+
+	conn.Send(&protocol.Message{
+		Message: &protocol.Message_PeerRequest{
+			PeerRequest: &protocol.PeerRequest{
+				Limit: -1,
+			},
+		},
+	})
+
 	return s.handleConnection(&Conn{conn})
 }
 
@@ -98,12 +115,14 @@ func (s *Server) Listen(port int) error {
 		if err != nil {
 			return err
 		}
+		addr := conn.RemoteAddr()
+		s.Printf("New connection from %s", addr)
 		go s.handleConnection(&Conn{conn})
 	}
 }
 
 // Handle registers a handler for a specific protobuf message type.
-func (s *Server) Handle(typ string, f func(message *protocol.Message)) {
+func (s *Server) Handle(typ string, f protocolHandler) {
 	s.handlers[typ] = f
 }
 
@@ -131,19 +150,19 @@ func (s *Server) handleConnection(conn *Conn) error {
 			break
 		}
 
-		s.Printf("message %s", buf)
 		req := &protocol.Message{}
 		if err = req.Unmarshal(buf); err != nil {
 			break
 		}
-		typ := reflect.TypeOf(req).Name()
-		s.Printf("Message: type = %s, len = %d", typ, len(buf))
+		s.Printf("Message: <- %s, %#v", conn.RemoteAddr(), req)
+		rawType := reflect.TypeOf(req.GetMessage()).Elem().Name()
+		typ := strings.TrimPrefix(rawType, "Message_")
 		handler, ok := s.handlers[typ]
 		if !ok {
 			err = fmt.Errorf("no handler for message type %s", typ)
 			break
 		}
-		handler(req)
+		handler(conn, req)
 
 	}
 	if err != nil {
@@ -169,8 +188,7 @@ func (c *Conn) Send(m *protocol.Message) error {
 	packet := make([]byte, len(msg)+4)
 	binary.BigEndian.PutUint32(packet, uint32(len(msg)))
 	copy(packet[4:], msg)
-	_, err = c.Write(packet)
-	if err != nil {
+	if _, err := c.Write(packet); err != nil {
 		return err
 	}
 	return nil

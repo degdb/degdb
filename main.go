@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"strings"
 
@@ -10,16 +11,19 @@ import (
 	"github.com/dustin/go-humanize"
 )
 
-var useNewDegDB = flag.Bool("new", false, "use the newer version of degdb")
-var bindPort = flag.Int("port", 7946, "The port to bind on.")
-var initialPeers = flag.String("peers", "", "CSV list of peers to connect to")
-var diskAllowed = flag.String("disk", "1G", "amount of disk space to allocate")
+var (
+	useNewDegDB  = flag.Bool("new", false, "Use the newer version of degdb.")
+	bindPort     = flag.Int("port", 7946, "The port to bind on.")
+	initialPeers = flag.String("peers", "", "CSV list of peers to connect to.")
+	diskAllowed  = flag.String("disk", "1G", "Amount of disk space to allocate.")
+	nodes        = flag.Int("nodes", 1, "Number of nodes to launch in this binary. Development use only. Disables external connections.")
+)
 
 func main() {
 	flag.Parse()
 
 	var peers []string
-	if len(*initialPeers) > 0 {
+	if len(*initialPeers) > 0 && *nodes == 1 {
 		peers = strings.Split(*initialPeers, ",")
 	}
 
@@ -30,7 +34,19 @@ func main() {
 	disk := int(diskFloat)
 
 	if *useNewDegDB {
-		core.Main(*bindPort, peers, disk)
+		for i := 0; i < *nodes; i++ {
+			port := *bindPort + i
+			launchPeers := peers
+			launch := func() {
+				core.Main(port, launchPeers, disk)
+			}
+			if i == (*nodes - 1) {
+				launch()
+			} else {
+				go launch()
+			}
+			peers = []string{fmt.Sprintf("localhost:%d", port)}
+		}
 	} else {
 		old.Main(*bindPort)
 	}
