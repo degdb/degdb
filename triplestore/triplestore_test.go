@@ -15,7 +15,8 @@ func TestTripleStore(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer os.Remove(file.Name())
-	if err := initDB(file.Name()); err != nil {
+	db, err := NewTripleStore(file.Name())
+	if err != nil {
 		t.Fatal(err)
 	}
 
@@ -42,9 +43,9 @@ func TestTripleStore(t *testing.T) {
 		},
 	}
 
-	Insert(triples)
+	db.Insert(triples)
 	// Insert twice to ensure no duplicates.
-	Insert(triples)
+	db.Insert(triples)
 
 	testData := []struct {
 		query *protocol.Triple
@@ -100,7 +101,7 @@ func TestTripleStore(t *testing.T) {
 	}
 
 	for i, td := range testData {
-		triples, err := Query(td.query, -1)
+		triples, err := db.Query(td.query, -1)
 		if err != nil {
 			t.Error(err)
 		}
@@ -109,7 +110,7 @@ func TestTripleStore(t *testing.T) {
 		}
 	}
 
-	info, err := Size()
+	info, err := db.Size()
 	if err != nil {
 		t.Fatal(err)
 	}
