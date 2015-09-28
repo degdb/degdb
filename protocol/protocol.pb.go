@@ -16,8 +16,8 @@
 		QueryRequest
 		QueryResponse
 		PeerRequest
-		PeerResponse
 		PeerNotify
+		Handshake
 */
 package protocol
 
@@ -41,10 +41,10 @@ var _ = math.Inf
 type Message struct {
 	// Types that are valid to be assigned to Message:
 	//	*Message_PeerRequest
-	//	*Message_PeerResponse
 	//	*Message_PeerNotify
 	//	*Message_QueryRequest
 	//	*Message_QueryResponse
+	//	*Message_Handshake
 	Message isMessage_Message `protobuf_oneof:"message"`
 }
 
@@ -61,9 +61,6 @@ type isMessage_Message interface {
 type Message_PeerRequest struct {
 	PeerRequest *PeerRequest `protobuf:"bytes,1,opt,name=peer_request,oneof"`
 }
-type Message_PeerResponse struct {
-	PeerResponse *PeerResponse `protobuf:"bytes,2,opt,name=peer_response,oneof"`
-}
 type Message_PeerNotify struct {
 	PeerNotify *PeerNotify `protobuf:"bytes,3,opt,name=peer_notify,oneof"`
 }
@@ -73,12 +70,15 @@ type Message_QueryRequest struct {
 type Message_QueryResponse struct {
 	QueryResponse *QueryResponse `protobuf:"bytes,5,opt,name=query_response,oneof"`
 }
+type Message_Handshake struct {
+	Handshake *Handshake `protobuf:"bytes,6,opt,name=handshake,oneof"`
+}
 
 func (*Message_PeerRequest) isMessage_Message()   {}
-func (*Message_PeerResponse) isMessage_Message()  {}
 func (*Message_PeerNotify) isMessage_Message()    {}
 func (*Message_QueryRequest) isMessage_Message()  {}
 func (*Message_QueryResponse) isMessage_Message() {}
+func (*Message_Handshake) isMessage_Message()     {}
 
 func (m *Message) GetMessage() isMessage_Message {
 	if m != nil {
@@ -90,13 +90,6 @@ func (m *Message) GetMessage() isMessage_Message {
 func (m *Message) GetPeerRequest() *PeerRequest {
 	if x, ok := m.GetMessage().(*Message_PeerRequest); ok {
 		return x.PeerRequest
-	}
-	return nil
-}
-
-func (m *Message) GetPeerResponse() *PeerResponse {
-	if x, ok := m.GetMessage().(*Message_PeerResponse); ok {
-		return x.PeerResponse
 	}
 	return nil
 }
@@ -122,14 +115,21 @@ func (m *Message) GetQueryResponse() *QueryResponse {
 	return nil
 }
 
+func (m *Message) GetHandshake() *Handshake {
+	if x, ok := m.GetMessage().(*Message_Handshake); ok {
+		return x.Handshake
+	}
+	return nil
+}
+
 // XXX_OneofFuncs is for the internal use of the proto package.
 func (*Message) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), []interface{}) {
 	return _Message_OneofMarshaler, _Message_OneofUnmarshaler, []interface{}{
 		(*Message_PeerRequest)(nil),
-		(*Message_PeerResponse)(nil),
 		(*Message_PeerNotify)(nil),
 		(*Message_QueryRequest)(nil),
 		(*Message_QueryResponse)(nil),
+		(*Message_Handshake)(nil),
 	}
 }
 
@@ -140,11 +140,6 @@ func _Message_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
 	case *Message_PeerRequest:
 		_ = b.EncodeVarint(1<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.PeerRequest); err != nil {
-			return err
-		}
-	case *Message_PeerResponse:
-		_ = b.EncodeVarint(2<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.PeerResponse); err != nil {
 			return err
 		}
 	case *Message_PeerNotify:
@@ -160,6 +155,11 @@ func _Message_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
 	case *Message_QueryResponse:
 		_ = b.EncodeVarint(5<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.QueryResponse); err != nil {
+			return err
+		}
+	case *Message_Handshake:
+		_ = b.EncodeVarint(6<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Handshake); err != nil {
 			return err
 		}
 	case nil:
@@ -179,14 +179,6 @@ func _Message_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer
 		msg := new(PeerRequest)
 		err := b.DecodeMessage(msg)
 		m.Message = &Message_PeerRequest{msg}
-		return true, err
-	case 2: // message.peer_response
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(PeerResponse)
-		err := b.DecodeMessage(msg)
-		m.Message = &Message_PeerResponse{msg}
 		return true, err
 	case 3: // message.peer_notify
 		if wire != proto.WireBytes {
@@ -211,6 +203,14 @@ func _Message_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer
 		msg := new(QueryResponse)
 		err := b.DecodeMessage(msg)
 		m.Message = &Message_QueryResponse{msg}
+		return true, err
+	case 6: // message.handshake
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(Handshake)
+		err := b.DecodeMessage(msg)
+		m.Message = &Message_Handshake{msg}
 		return true, err
 	default:
 		return false, nil
@@ -311,20 +311,6 @@ func (m *PeerRequest) GetKeyspace() *Keyspace {
 	return nil
 }
 
-type PeerResponse struct {
-	Peers []*Peer `protobuf:"bytes,1,rep,name=peers" json:"peers,omitempty"`
-}
-
-func (m *PeerResponse) Reset()      { *m = PeerResponse{} }
-func (*PeerResponse) ProtoMessage() {}
-
-func (m *PeerResponse) GetPeers() []*Peer {
-	if m != nil {
-		return m.Peers
-	}
-	return nil
-}
-
 type PeerNotify struct {
 	Peers []*Peer `protobuf:"bytes,1,rep,name=peers" json:"peers,omitempty"`
 }
@@ -335,6 +321,21 @@ func (*PeerNotify) ProtoMessage() {}
 func (m *PeerNotify) GetPeers() []*Peer {
 	if m != nil {
 		return m.Peers
+	}
+	return nil
+}
+
+type Handshake struct {
+	Response bool  `protobuf:"varint,1,opt,name=response,proto3" json:"response,omitempty"`
+	Sender   *Peer `protobuf:"bytes,2,opt,name=sender" json:"sender,omitempty"`
+}
+
+func (m *Handshake) Reset()      { *m = Handshake{} }
+func (*Handshake) ProtoMessage() {}
+
+func (m *Handshake) GetSender() *Peer {
+	if m != nil {
+		return m.Sender
 	}
 	return nil
 }
@@ -391,31 +392,6 @@ func (this *Message_PeerRequest) Equal(that interface{}) bool {
 		return false
 	}
 	if !this.PeerRequest.Equal(that1.PeerRequest) {
-		return false
-	}
-	return true
-}
-func (this *Message_PeerResponse) Equal(that interface{}) bool {
-	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
-	}
-
-	that1, ok := that.(*Message_PeerResponse)
-	if !ok {
-		return false
-	}
-	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
-	} else if this == nil {
-		return false
-	}
-	if !this.PeerResponse.Equal(that1.PeerResponse) {
 		return false
 	}
 	return true
@@ -491,6 +467,31 @@ func (this *Message_QueryResponse) Equal(that interface{}) bool {
 		return false
 	}
 	if !this.QueryResponse.Equal(that1.QueryResponse) {
+		return false
+	}
+	return true
+}
+func (this *Message_Handshake) Equal(that interface{}) bool {
+	if that == nil {
+		if this == nil {
+			return true
+		}
+		return false
+	}
+
+	that1, ok := that.(*Message_Handshake)
+	if !ok {
+		return false
+	}
+	if that1 == nil {
+		if this == nil {
+			return true
+		}
+		return false
+	} else if this == nil {
+		return false
+	}
+	if !this.Handshake.Equal(that1.Handshake) {
 		return false
 	}
 	return true
@@ -680,36 +681,6 @@ func (this *PeerRequest) Equal(that interface{}) bool {
 	}
 	return true
 }
-func (this *PeerResponse) Equal(that interface{}) bool {
-	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
-	}
-
-	that1, ok := that.(*PeerResponse)
-	if !ok {
-		return false
-	}
-	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
-	} else if this == nil {
-		return false
-	}
-	if len(this.Peers) != len(that1.Peers) {
-		return false
-	}
-	for i := range this.Peers {
-		if !this.Peers[i].Equal(that1.Peers[i]) {
-			return false
-		}
-	}
-	return true
-}
 func (this *PeerNotify) Equal(that interface{}) bool {
 	if that == nil {
 		if this == nil {
@@ -740,6 +711,34 @@ func (this *PeerNotify) Equal(that interface{}) bool {
 	}
 	return true
 }
+func (this *Handshake) Equal(that interface{}) bool {
+	if that == nil {
+		if this == nil {
+			return true
+		}
+		return false
+	}
+
+	that1, ok := that.(*Handshake)
+	if !ok {
+		return false
+	}
+	if that1 == nil {
+		if this == nil {
+			return true
+		}
+		return false
+	} else if this == nil {
+		return false
+	}
+	if this.Response != that1.Response {
+		return false
+	}
+	if !this.Sender.Equal(that1.Sender) {
+		return false
+	}
+	return true
+}
 func (this *Message) GoString() string {
 	if this == nil {
 		return "nil"
@@ -758,14 +757,6 @@ func (this *Message_PeerRequest) GoString() string {
 	}
 	s := strings.Join([]string{`&protocol.Message_PeerRequest{` +
 		`PeerRequest:` + fmt.Sprintf("%#v", this.PeerRequest) + `}`}, ", ")
-	return s
-}
-func (this *Message_PeerResponse) GoString() string {
-	if this == nil {
-		return "nil"
-	}
-	s := strings.Join([]string{`&protocol.Message_PeerResponse{` +
-		`PeerResponse:` + fmt.Sprintf("%#v", this.PeerResponse) + `}`}, ", ")
 	return s
 }
 func (this *Message_PeerNotify) GoString() string {
@@ -790,6 +781,14 @@ func (this *Message_QueryResponse) GoString() string {
 	}
 	s := strings.Join([]string{`&protocol.Message_QueryResponse{` +
 		`QueryResponse:` + fmt.Sprintf("%#v", this.QueryResponse) + `}`}, ", ")
+	return s
+}
+func (this *Message_Handshake) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&protocol.Message_Handshake{` +
+		`Handshake:` + fmt.Sprintf("%#v", this.Handshake) + `}`}, ", ")
 	return s
 }
 func (this *Triple) GoString() string {
@@ -872,18 +871,6 @@ func (this *PeerRequest) GoString() string {
 	s = append(s, "}")
 	return strings.Join(s, "")
 }
-func (this *PeerResponse) GoString() string {
-	if this == nil {
-		return "nil"
-	}
-	s := make([]string, 0, 5)
-	s = append(s, "&protocol.PeerResponse{")
-	if this.Peers != nil {
-		s = append(s, "Peers: "+fmt.Sprintf("%#v", this.Peers)+",\n")
-	}
-	s = append(s, "}")
-	return strings.Join(s, "")
-}
 func (this *PeerNotify) GoString() string {
 	if this == nil {
 		return "nil"
@@ -892,6 +879,19 @@ func (this *PeerNotify) GoString() string {
 	s = append(s, "&protocol.PeerNotify{")
 	if this.Peers != nil {
 		s = append(s, "Peers: "+fmt.Sprintf("%#v", this.Peers)+",\n")
+	}
+	s = append(s, "}")
+	return strings.Join(s, "")
+}
+func (this *Handshake) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := make([]string, 0, 6)
+	s = append(s, "&protocol.Handshake{")
+	s = append(s, "Response: "+fmt.Sprintf("%#v", this.Response)+",\n")
+	if this.Sender != nil {
+		s = append(s, "Sender: "+fmt.Sprintf("%#v", this.Sender)+",\n")
 	}
 	s = append(s, "}")
 	return strings.Join(s, "")
@@ -960,31 +960,17 @@ func (m *Message_PeerRequest) MarshalTo(data []byte) (int, error) {
 	}
 	return i, nil
 }
-func (m *Message_PeerResponse) MarshalTo(data []byte) (int, error) {
-	i := 0
-	if m.PeerResponse != nil {
-		data[i] = 0x12
-		i++
-		i = encodeVarintProtocol(data, i, uint64(m.PeerResponse.Size()))
-		n3, err := m.PeerResponse.MarshalTo(data[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n3
-	}
-	return i, nil
-}
 func (m *Message_PeerNotify) MarshalTo(data []byte) (int, error) {
 	i := 0
 	if m.PeerNotify != nil {
 		data[i] = 0x1a
 		i++
 		i = encodeVarintProtocol(data, i, uint64(m.PeerNotify.Size()))
-		n4, err := m.PeerNotify.MarshalTo(data[i:])
+		n3, err := m.PeerNotify.MarshalTo(data[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n4
+		i += n3
 	}
 	return i, nil
 }
@@ -994,11 +980,11 @@ func (m *Message_QueryRequest) MarshalTo(data []byte) (int, error) {
 		data[i] = 0x22
 		i++
 		i = encodeVarintProtocol(data, i, uint64(m.QueryRequest.Size()))
-		n5, err := m.QueryRequest.MarshalTo(data[i:])
+		n4, err := m.QueryRequest.MarshalTo(data[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n5
+		i += n4
 	}
 	return i, nil
 }
@@ -1008,7 +994,21 @@ func (m *Message_QueryResponse) MarshalTo(data []byte) (int, error) {
 		data[i] = 0x2a
 		i++
 		i = encodeVarintProtocol(data, i, uint64(m.QueryResponse.Size()))
-		n6, err := m.QueryResponse.MarshalTo(data[i:])
+		n5, err := m.QueryResponse.MarshalTo(data[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n5
+	}
+	return i, nil
+}
+func (m *Message_Handshake) MarshalTo(data []byte) (int, error) {
+	i := 0
+	if m.Handshake != nil {
+		data[i] = 0x32
+		i++
+		i = encodeVarintProtocol(data, i, uint64(m.Handshake.Size()))
+		n6, err := m.Handshake.MarshalTo(data[i:])
 		if err != nil {
 			return 0, err
 		}
@@ -1238,36 +1238,6 @@ func (m *PeerRequest) MarshalTo(data []byte) (int, error) {
 	return i, nil
 }
 
-func (m *PeerResponse) Marshal() (data []byte, err error) {
-	size := m.Size()
-	data = make([]byte, size)
-	n, err := m.MarshalTo(data)
-	if err != nil {
-		return nil, err
-	}
-	return data[:n], nil
-}
-
-func (m *PeerResponse) MarshalTo(data []byte) (int, error) {
-	var i int
-	_ = i
-	var l int
-	_ = l
-	if len(m.Peers) > 0 {
-		for _, msg := range m.Peers {
-			data[i] = 0xa
-			i++
-			i = encodeVarintProtocol(data, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(data[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
-	}
-	return i, nil
-}
-
 func (m *PeerNotify) Marshal() (data []byte, err error) {
 	size := m.Size()
 	data = make([]byte, size)
@@ -1294,6 +1264,44 @@ func (m *PeerNotify) MarshalTo(data []byte) (int, error) {
 			}
 			i += n
 		}
+	}
+	return i, nil
+}
+
+func (m *Handshake) Marshal() (data []byte, err error) {
+	size := m.Size()
+	data = make([]byte, size)
+	n, err := m.MarshalTo(data)
+	if err != nil {
+		return nil, err
+	}
+	return data[:n], nil
+}
+
+func (m *Handshake) MarshalTo(data []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Response {
+		data[i] = 0x8
+		i++
+		if m.Response {
+			data[i] = 1
+		} else {
+			data[i] = 0
+		}
+		i++
+	}
+	if m.Sender != nil {
+		data[i] = 0x12
+		i++
+		i = encodeVarintProtocol(data, i, uint64(m.Sender.Size()))
+		n11, err := m.Sender.MarshalTo(data[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n11
 	}
 	return i, nil
 }
@@ -1343,15 +1351,6 @@ func (m *Message_PeerRequest) Size() (n int) {
 	}
 	return n
 }
-func (m *Message_PeerResponse) Size() (n int) {
-	var l int
-	_ = l
-	if m.PeerResponse != nil {
-		l = m.PeerResponse.Size()
-		n += 1 + l + sovProtocol(uint64(l))
-	}
-	return n
-}
 func (m *Message_PeerNotify) Size() (n int) {
 	var l int
 	_ = l
@@ -1375,6 +1374,15 @@ func (m *Message_QueryResponse) Size() (n int) {
 	_ = l
 	if m.QueryResponse != nil {
 		l = m.QueryResponse.Size()
+		n += 1 + l + sovProtocol(uint64(l))
+	}
+	return n
+}
+func (m *Message_Handshake) Size() (n int) {
+	var l int
+	_ = l
+	if m.Handshake != nil {
+		l = m.Handshake.Size()
 		n += 1 + l + sovProtocol(uint64(l))
 	}
 	return n
@@ -1477,7 +1485,7 @@ func (m *PeerRequest) Size() (n int) {
 	return n
 }
 
-func (m *PeerResponse) Size() (n int) {
+func (m *PeerNotify) Size() (n int) {
 	var l int
 	_ = l
 	if len(m.Peers) > 0 {
@@ -1489,14 +1497,15 @@ func (m *PeerResponse) Size() (n int) {
 	return n
 }
 
-func (m *PeerNotify) Size() (n int) {
+func (m *Handshake) Size() (n int) {
 	var l int
 	_ = l
-	if len(m.Peers) > 0 {
-		for _, e := range m.Peers {
-			l = e.Size()
-			n += 1 + l + sovProtocol(uint64(l))
-		}
+	if m.Response {
+		n += 2
+	}
+	if m.Sender != nil {
+		l = m.Sender.Size()
+		n += 1 + l + sovProtocol(uint64(l))
 	}
 	return n
 }
@@ -1534,16 +1543,6 @@ func (this *Message_PeerRequest) String() string {
 	}, "")
 	return s
 }
-func (this *Message_PeerResponse) String() string {
-	if this == nil {
-		return "nil"
-	}
-	s := strings.Join([]string{`&Message_PeerResponse{`,
-		`PeerResponse:` + strings.Replace(fmt.Sprintf("%v", this.PeerResponse), "PeerResponse", "PeerResponse", 1) + `,`,
-		`}`,
-	}, "")
-	return s
-}
 func (this *Message_PeerNotify) String() string {
 	if this == nil {
 		return "nil"
@@ -1570,6 +1569,16 @@ func (this *Message_QueryResponse) String() string {
 	}
 	s := strings.Join([]string{`&Message_QueryResponse{`,
 		`QueryResponse:` + strings.Replace(fmt.Sprintf("%v", this.QueryResponse), "QueryResponse", "QueryResponse", 1) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *Message_Handshake) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&Message_Handshake{`,
+		`Handshake:` + strings.Replace(fmt.Sprintf("%v", this.Handshake), "Handshake", "Handshake", 1) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -1644,22 +1653,23 @@ func (this *PeerRequest) String() string {
 	}, "")
 	return s
 }
-func (this *PeerResponse) String() string {
-	if this == nil {
-		return "nil"
-	}
-	s := strings.Join([]string{`&PeerResponse{`,
-		`Peers:` + strings.Replace(fmt.Sprintf("%v", this.Peers), "Peer", "Peer", 1) + `,`,
-		`}`,
-	}, "")
-	return s
-}
 func (this *PeerNotify) String() string {
 	if this == nil {
 		return "nil"
 	}
 	s := strings.Join([]string{`&PeerNotify{`,
 		`Peers:` + strings.Replace(fmt.Sprintf("%v", this.Peers), "Peer", "Peer", 1) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *Handshake) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&Handshake{`,
+		`Response:` + fmt.Sprintf("%v", this.Response) + `,`,
+		`Sender:` + strings.Replace(fmt.Sprintf("%v", this.Sender), "Peer", "Peer", 1) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -1732,38 +1742,6 @@ func (m *Message) Unmarshal(data []byte) error {
 				return err
 			}
 			m.Message = &Message_PeerRequest{v}
-			iNdEx = postIndex
-		case 2:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field PeerResponse", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowProtocol
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := data[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthProtocol
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			v := &PeerResponse{}
-			if err := v.Unmarshal(data[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			m.Message = &Message_PeerResponse{v}
 			iNdEx = postIndex
 		case 3:
 			if wireType != 2 {
@@ -1860,6 +1838,38 @@ func (m *Message) Unmarshal(data []byte) error {
 				return err
 			}
 			m.Message = &Message_QueryResponse{v}
+			iNdEx = postIndex
+		case 6:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Handshake", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowProtocol
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthProtocol
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &Handshake{}
+			if err := v.Unmarshal(data[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.Message = &Message_Handshake{v}
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -2624,87 +2634,6 @@ func (m *PeerRequest) Unmarshal(data []byte) error {
 	}
 	return nil
 }
-func (m *PeerResponse) Unmarshal(data []byte) error {
-	l := len(data)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowProtocol
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := data[iNdEx]
-			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: PeerResponse: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: PeerResponse: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Peers", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowProtocol
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := data[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthProtocol
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Peers = append(m.Peers, &Peer{})
-			if err := m.Peers[len(m.Peers)-1].Unmarshal(data[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipProtocol(data[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthProtocol
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
 func (m *PeerNotify) Unmarshal(data []byte) error {
 	l := len(data)
 	iNdEx := 0
@@ -2762,6 +2691,109 @@ func (m *PeerNotify) Unmarshal(data []byte) error {
 			}
 			m.Peers = append(m.Peers, &Peer{})
 			if err := m.Peers[len(m.Peers)-1].Unmarshal(data[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipProtocol(data[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthProtocol
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *Handshake) Unmarshal(data []byte) error {
+	l := len(data)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowProtocol
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := data[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Handshake: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Handshake: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Response", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowProtocol
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[iNdEx]
+				iNdEx++
+				v |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.Response = bool(v != 0)
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Sender", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowProtocol
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthProtocol
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Sender == nil {
+				m.Sender = &Peer{}
+			}
+			if err := m.Sender.Unmarshal(data[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex

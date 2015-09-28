@@ -25,6 +25,8 @@ type Server struct {
 	HTTP *http.Server
 	Mux  *http.ServeMux
 
+	Peers map[string]*Conn
+
 	handlers map[string]protocolHandler
 	listener *httpListener
 	*log.Logger
@@ -36,7 +38,7 @@ var (
 	stunOnce sync.Once
 	stunWG   sync.WaitGroup
 	nat      stun.NATType
-	host     *stun.Host
+	host     string
 )
 
 func init() {
@@ -45,31 +47,34 @@ func init() {
 
 func stunResults() {
 	stunOnce.Do(func() {
-		var err error
 		// TODO(d4l3k): Fetch IP by talking to other nodes.
 		stunc := stun.NewClient()
-		nat, host, err = stunc.Discover()
+		natType, stunHost, err := stunc.Discover()
 		if err != nil {
 			log.Fatal(err)
 		}
+		nat = natType
+		host = stunHost.IP()
 		stunWG.Done()
 	})
 	stunWG.Wait()
 }
 
 // NewServer creates a new server with routing information.
-func NewServer(log *log.Logger) (*Server, error) {
+func NewServer(log *log.Logger, port int) (*Server, error) {
 	s := &Server{
 		Logger:   log,
+		Port:     port,
+		Peers:    make(map[string]*Conn),
 		handlers: make(map[string]protocolHandler),
 	}
 
 	stunResults()
 
-	s.IP = host.IP()
+	s.IP = host
 	s.NAT = nat
 
-	tcpAddr, err := net.ResolveTCPAddr("tcp", host.TransportAddr())
+	tcpAddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", s.IP, s.Port))
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +84,78 @@ func NewServer(log *log.Logger) (*Server, error) {
 	}
 	s.Mux = http.NewServeMux()
 	s.HTTP = &http.Server{Handler: s.Mux}
+
+	// Handlers
+	s.Handle("Handshake", s.handleHandshake)
+	s.Handle("PeerRequest", s.handlePeerRequest)
+	s.Handle("PeerNotify", s.handlePeerNotify)
+
 	return s, nil
+}
+
+func (s *Server) handlePeerNotify(conn *Conn, msg *protocol.Message) {
+	peers := msg.GetPeerNotify().Peers
+	for _, peer := range peers {
+		if _, ok := s.Peers[peer.Id]; !ok {
+			s.Peers[peer.Id] = nil
+			s.Connect(peer.Id)
+		}
+	}
+}
+
+func (s *Server) handlePeerRequest(conn *Conn, msg *protocol.Message) {
+	// TODO(d4l3k): Handle keyspace check.
+	req := msg.GetPeerRequest()
+
+	var peers []*protocol.Peer
+	for id, v := range s.Peers {
+		if conn.Peer.Id == id || v == nil {
+			continue
+		}
+		peers = append(peers, v.Peer)
+		if req.Limit > 0 && int32(len(peers)) >= req.Limit {
+			break
+		}
+	}
+	err := conn.Send(&protocol.Message{Message: &protocol.Message_PeerNotify{
+		PeerNotify: &protocol.PeerNotify{
+			Peers: peers,
+		}}})
+	if err != nil {
+		log.Printf("ERR sending PeerNotify: %s", err)
+	}
+}
+
+func (s *Server) handleHandshake(conn *Conn, msg *protocol.Message) {
+	handshake := msg.GetHandshake()
+	conn.Peer = handshake.GetSender()
+	s.Peers[conn.Peer.Id] = conn
+	s.Printf("New peer %s", conn.Peer.Id)
+	if !handshake.Response {
+		if err := s.sendHandshake(conn, true); err != nil {
+			log.Printf("ERR sendHandshake %s", err)
+		}
+	} else {
+		msg := &protocol.Message{Message: &protocol.Message_PeerRequest{
+			PeerRequest: &protocol.PeerRequest{
+				Limit:    -1,
+				Keyspace: s.LocalPeer().Keyspace,
+			}}}
+		if err := conn.Send(msg); err != nil {
+			log.Printf("ERR sending PeerRequest: %s", err)
+		}
+	}
+}
+
+func (s *Server) sendHandshake(conn *Conn, response bool) error {
+	return conn.Send(&protocol.Message{
+		Message: &protocol.Message_Handshake{
+			Handshake: &protocol.Handshake{
+				Response: response,
+				Sender:   s.LocalPeer(),
+			},
+		},
+	})
 }
 
 // Connect to another server. `addr` should be in the format "google.com:80".
@@ -88,22 +164,23 @@ func (s *Server) Connect(addr string) error {
 	if err != nil {
 		return err
 	}
-	conn := &Conn{tcpConn}
+	conn := &Conn{Conn: tcpConn}
 
-	conn.Send(&protocol.Message{
-		Message: &protocol.Message_PeerRequest{
-			PeerRequest: &protocol.PeerRequest{
-				Limit: -1,
-			},
-		},
-	})
+	if err := s.sendHandshake(conn, false); err != nil {
+		return err
+	}
 
-	return s.handleConnection(&Conn{conn})
+	return s.handleConnection(conn)
+}
+
+func (s *Server) LocalPeer() *protocol.Peer {
+	return &protocol.Peer{
+		Id: fmt.Sprintf("%s:%d", s.IP, s.Port),
+	}
 }
 
 // Listen for incoming connections on the specified port.
-func (s *Server) Listen(port int) error {
-	s.Port = port
+func (s *Server) Listen() error {
 	ln, err := net.Listen("tcp", "0.0.0.0:"+strconv.Itoa(s.Port))
 	if err != nil {
 		return err
@@ -117,7 +194,7 @@ func (s *Server) Listen(port int) error {
 		}
 		addr := conn.RemoteAddr()
 		s.Printf("New connection from %s", addr)
-		go s.handleConnection(&Conn{conn})
+		go s.handleConnection(&Conn{Conn: conn})
 	}
 }
 
@@ -154,7 +231,7 @@ func (s *Server) handleConnection(conn *Conn) error {
 		if err = req.Unmarshal(buf); err != nil {
 			break
 		}
-		s.Printf("Message: <- %s, %#v", conn.RemoteAddr(), req)
+		s.Printf("Message: <- %s, %+v", conn.RemoteAddr(), req)
 		rawType := reflect.TypeOf(req.GetMessage()).Elem().Name()
 		typ := strings.TrimPrefix(rawType, "Message_")
 		handler, ok := s.handlers[typ]
@@ -176,6 +253,8 @@ func (s *Server) handleConnection(conn *Conn) error {
 
 // Conn is a net.Conn with extensions.
 type Conn struct {
+	Peer *protocol.Peer
+
 	net.Conn
 }
 

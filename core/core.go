@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/degdb/degdb/network"
-	"github.com/degdb/degdb/protocol"
 	"github.com/degdb/degdb/triplestore"
 )
 
@@ -23,7 +22,7 @@ type server struct {
 func Main(port int, peers []string, diskAllocated int) {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	s := &server{
-		Logger:        log.New(os.Stderr, fmt.Sprintf(":%d ", port), log.Flags()),
+		Logger:        log.New(os.Stdout, fmt.Sprintf(":%d ", port), log.Flags()),
 		diskAllocated: diskAllocated,
 	}
 
@@ -37,23 +36,25 @@ func Main(port int, peers []string, diskAllocated int) {
 	s.ts = ts
 
 	s.Printf("Initializing network...")
-	ns, err := network.NewServer(s.Logger)
+	ns, err := network.NewServer(s.Logger, port)
 	if err != nil {
 		s.Fatal(err)
 	}
 	s.network = ns
 
-	s.network.Handle("PeerRequest", func(conn *network.Conn, msg *protocol.Message) {
-		s.Printf("PeerRequest %#v", *msg.GetPeerRequest())
-	})
+	go s.connectPeers(peers)
+	s.Fatal(s.network.Listen())
+}
 
+func (s *server) connectPeers(peers []string) {
 	for _, peer := range peers {
+		peer := peer
 		time.Sleep(200 * time.Millisecond)
-		s.Printf("Connecting to peer %s", peer)
-		if err := s.network.Connect(peer); err != nil {
-			s.Printf("ERR connecting to peer: %s", err)
-		}
+		go func() {
+			s.Printf("Connecting to peer %s", peer)
+			if err := s.network.Connect(peer); err != nil {
+				s.Printf("ERR connecting to peer: %s", err)
+			}
+		}()
 	}
-
-	s.Fatal(s.network.Listen(port))
 }

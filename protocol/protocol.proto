@@ -3,11 +3,12 @@ syntax = "proto3";
 message Message {
   oneof message {
     PeerRequest peer_request = 1;
-    PeerResponse peer_response = 2;
     PeerNotify peer_notify = 3;
 
     QueryRequest query_request = 4;
     QueryResponse query_response = 5;
+
+    Handshake handshake = 6;
   }
 }
 
@@ -54,10 +55,11 @@ message PeerRequest {
   int32 limit = 2;
 }
 
-message PeerResponse {
+message PeerNotify {
   repeated Peer peers = 1;
 }
 
-message PeerNotify {
-  repeated Peer peers = 1;
+message Handshake {
+  bool response = 1;
+  Peer sender = 2;
 }
