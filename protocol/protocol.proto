@@ -9,6 +9,8 @@ message Message {
     QueryResponse query_response = 5;
 
     Handshake handshake = 6;
+
+    InsertTriples insert_triples = 8;
   }
   bool gossip = 7;
 }
@@ -63,4 +65,8 @@ message PeerNotify {
 message Handshake {
   bool response = 1;
   Peer sender = 2;
+}
+
+message InsertTriples {
+  repeated Triple triples = 1;
 }

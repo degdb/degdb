@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"log"
+	"math"
 	"net"
 	"net/http"
 	"reflect"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/ccding/go-stun/stun"
 	"github.com/degdb/degdb/protocol"
+	"github.com/spaolacci/murmur3"
 )
 
 // Server handles all network traffic.
@@ -138,8 +140,8 @@ func (s *Server) handleHandshake(conn *Conn, msg *protocol.Message) {
 	} else {
 		msg := &protocol.Message{Message: &protocol.Message_PeerRequest{
 			PeerRequest: &protocol.PeerRequest{
-				Limit:    -1,
-				Keyspace: s.LocalPeer().Keyspace,
+				Limit: -1,
+				//Keyspace: s.LocalPeer().Keyspace,
 			}}}
 		if err := conn.Send(msg); err != nil {
 			log.Printf("ERR sending PeerRequest: %s", err)
@@ -174,8 +176,15 @@ func (s *Server) Connect(addr string) error {
 }
 
 func (s *Server) LocalPeer() *protocol.Peer {
+	id := fmt.Sprintf("%s:%d", s.IP, s.Port)
+	center := murmur3.Sum64([]byte(id))
+	keyspace := &protocol.Keyspace{
+		Start: center - math.MaxUint64/4,
+		End:   center + math.MaxUint64/4,
+	}
 	return &protocol.Peer{
-		Id: fmt.Sprintf("%s:%d", s.IP, s.Port),
+		Id:       id,
+		Keyspace: keyspace,
 	}
 }
 
@@ -201,6 +210,22 @@ func (s *Server) Listen() error {
 // Handle registers a handler for a specific protobuf message type.
 func (s *Server) Handle(typ string, f protocolHandler) {
 	s.handlers[typ] = f
+}
+
+// Broadcast sends a message to all peers with that have the hash in their keyspace.
+func (s *Server) Broadcast(hash uint64, msg *protocol.Message) error {
+	a := hash
+	for _, peer := range s.Peers {
+		keyspace := peer.Peer.GetKeyspace()
+		s := keyspace.Start
+		e := keyspace.End
+		if s <= a && a < e || a < e && e < s || e < s && s <= a {
+			if err := peer.Send(msg); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func (s *Server) handleConnection(conn *Conn) error {

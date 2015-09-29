@@ -18,6 +18,7 @@
 		PeerRequest
 		PeerNotify
 		Handshake
+		InsertTriples
 */
 package protocol
 
@@ -45,7 +46,9 @@ type Message struct {
 	//	*Message_QueryRequest
 	//	*Message_QueryResponse
 	//	*Message_Handshake
+	//	*Message_InsertTriples
 	Message isMessage_Message `protobuf_oneof:"message"`
+	Gossip  bool              `protobuf:"varint,7,opt,name=gossip,proto3" json:"gossip,omitempty"`
 }
 
 func (m *Message) Reset()      { *m = Message{} }
@@ -73,12 +76,16 @@ type Message_QueryResponse struct {
 type Message_Handshake struct {
 	Handshake *Handshake `protobuf:"bytes,6,opt,name=handshake,oneof"`
 }
+type Message_InsertTriples struct {
+	InsertTriples *InsertTriples `protobuf:"bytes,8,opt,name=insert_triples,oneof"`
+}
 
 func (*Message_PeerRequest) isMessage_Message()   {}
 func (*Message_PeerNotify) isMessage_Message()    {}
 func (*Message_QueryRequest) isMessage_Message()  {}
 func (*Message_QueryResponse) isMessage_Message() {}
 func (*Message_Handshake) isMessage_Message()     {}
+func (*Message_InsertTriples) isMessage_Message() {}
 
 func (m *Message) GetMessage() isMessage_Message {
 	if m != nil {
@@ -122,6 +129,13 @@ func (m *Message) GetHandshake() *Handshake {
 	return nil
 }
 
+func (m *Message) GetInsertTriples() *InsertTriples {
+	if x, ok := m.GetMessage().(*Message_InsertTriples); ok {
+		return x.InsertTriples
+	}
+	return nil
+}
+
 // XXX_OneofFuncs is for the internal use of the proto package.
 func (*Message) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), []interface{}) {
 	return _Message_OneofMarshaler, _Message_OneofUnmarshaler, []interface{}{
@@ -130,6 +144,7 @@ func (*Message) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error
 		(*Message_QueryRequest)(nil),
 		(*Message_QueryResponse)(nil),
 		(*Message_Handshake)(nil),
+		(*Message_InsertTriples)(nil),
 	}
 }
 
@@ -160,6 +175,11 @@ func _Message_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
 	case *Message_Handshake:
 		_ = b.EncodeVarint(6<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.Handshake); err != nil {
+			return err
+		}
+	case *Message_InsertTriples:
+		_ = b.EncodeVarint(8<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.InsertTriples); err != nil {
 			return err
 		}
 	case nil:
@@ -211,6 +231,14 @@ func _Message_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer
 		msg := new(Handshake)
 		err := b.DecodeMessage(msg)
 		m.Message = &Message_Handshake{msg}
+		return true, err
+	case 8: // message.insert_triples
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(InsertTriples)
+		err := b.DecodeMessage(msg)
+		m.Message = &Message_InsertTriples{msg}
 		return true, err
 	default:
 		return false, nil
@@ -340,6 +368,20 @@ func (m *Handshake) GetSender() *Peer {
 	return nil
 }
 
+type InsertTriples struct {
+	Triples []*Triple `protobuf:"bytes,1,rep,name=triples" json:"triples,omitempty"`
+}
+
+func (m *InsertTriples) Reset()      { *m = InsertTriples{} }
+func (*InsertTriples) ProtoMessage() {}
+
+func (m *InsertTriples) GetTriples() []*Triple {
+	if m != nil {
+		return m.Triples
+	}
+	return nil
+}
+
 func (this *Message) Equal(that interface{}) bool {
 	if that == nil {
 		if this == nil {
@@ -367,6 +409,9 @@ func (this *Message) Equal(that interface{}) bool {
 	} else if this.Message == nil {
 		return false
 	} else if !this.Message.Equal(that1.Message) {
+		return false
+	}
+	if this.Gossip != that1.Gossip {
 		return false
 	}
 	return true
@@ -492,6 +537,31 @@ func (this *Message_Handshake) Equal(that interface{}) bool {
 		return false
 	}
 	if !this.Handshake.Equal(that1.Handshake) {
+		return false
+	}
+	return true
+}
+func (this *Message_InsertTriples) Equal(that interface{}) bool {
+	if that == nil {
+		if this == nil {
+			return true
+		}
+		return false
+	}
+
+	that1, ok := that.(*Message_InsertTriples)
+	if !ok {
+		return false
+	}
+	if that1 == nil {
+		if this == nil {
+			return true
+		}
+		return false
+	} else if this == nil {
+		return false
+	}
+	if !this.InsertTriples.Equal(that1.InsertTriples) {
 		return false
 	}
 	return true
@@ -739,15 +809,46 @@ func (this *Handshake) Equal(that interface{}) bool {
 	}
 	return true
 }
+func (this *InsertTriples) Equal(that interface{}) bool {
+	if that == nil {
+		if this == nil {
+			return true
+		}
+		return false
+	}
+
+	that1, ok := that.(*InsertTriples)
+	if !ok {
+		return false
+	}
+	if that1 == nil {
+		if this == nil {
+			return true
+		}
+		return false
+	} else if this == nil {
+		return false
+	}
+	if len(this.Triples) != len(that1.Triples) {
+		return false
+	}
+	for i := range this.Triples {
+		if !this.Triples[i].Equal(that1.Triples[i]) {
+			return false
+		}
+	}
+	return true
+}
 func (this *Message) GoString() string {
 	if this == nil {
 		return "nil"
 	}
-	s := make([]string, 0, 9)
+	s := make([]string, 0, 11)
 	s = append(s, "&protocol.Message{")
 	if this.Message != nil {
 		s = append(s, "Message: "+fmt.Sprintf("%#v", this.Message)+",\n")
 	}
+	s = append(s, "Gossip: "+fmt.Sprintf("%#v", this.Gossip)+",\n")
 	s = append(s, "}")
 	return strings.Join(s, "")
 }
@@ -789,6 +890,14 @@ func (this *Message_Handshake) GoString() string {
 	}
 	s := strings.Join([]string{`&protocol.Message_Handshake{` +
 		`Handshake:` + fmt.Sprintf("%#v", this.Handshake) + `}`}, ", ")
+	return s
+}
+func (this *Message_InsertTriples) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&protocol.Message_InsertTriples{` +
+		`InsertTriples:` + fmt.Sprintf("%#v", this.InsertTriples) + `}`}, ", ")
 	return s
 }
 func (this *Triple) GoString() string {
@@ -896,6 +1005,18 @@ func (this *Handshake) GoString() string {
 	s = append(s, "}")
 	return strings.Join(s, "")
 }
+func (this *InsertTriples) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := make([]string, 0, 5)
+	s = append(s, "&protocol.InsertTriples{")
+	if this.Triples != nil {
+		s = append(s, "Triples: "+fmt.Sprintf("%#v", this.Triples)+",\n")
+	}
+	s = append(s, "}")
+	return strings.Join(s, "")
+}
 func valueToGoStringProtocol(v interface{}, typ string) string {
 	rv := reflect.ValueOf(v)
 	if rv.IsNil() {
@@ -942,6 +1063,16 @@ func (m *Message) MarshalTo(data []byte) (int, error) {
 			return 0, err
 		}
 		i += nn1
+	}
+	if m.Gossip {
+		data[i] = 0x38
+		i++
+		if m.Gossip {
+			data[i] = 1
+		} else {
+			data[i] = 0
+		}
+		i++
 	}
 	return i, nil
 }
@@ -1013,6 +1144,20 @@ func (m *Message_Handshake) MarshalTo(data []byte) (int, error) {
 			return 0, err
 		}
 		i += n6
+	}
+	return i, nil
+}
+func (m *Message_InsertTriples) MarshalTo(data []byte) (int, error) {
+	i := 0
+	if m.InsertTriples != nil {
+		data[i] = 0x42
+		i++
+		i = encodeVarintProtocol(data, i, uint64(m.InsertTriples.Size()))
+		n7, err := m.InsertTriples.MarshalTo(data[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n7
 	}
 	return i, nil
 }
@@ -1095,11 +1240,11 @@ func (m *Peer) MarshalTo(data []byte) (int, error) {
 		data[i] = 0x12
 		i++
 		i = encodeVarintProtocol(data, i, uint64(m.Keyspace.Size()))
-		n7, err := m.Keyspace.MarshalTo(data[i:])
+		n8, err := m.Keyspace.MarshalTo(data[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n7
+		i += n8
 	}
 	return i, nil
 }
@@ -1151,11 +1296,11 @@ func (m *QueryRequest) MarshalTo(data []byte) (int, error) {
 		data[i] = 0xa
 		i++
 		i = encodeVarintProtocol(data, i, uint64(m.Filter.Size()))
-		n8, err := m.Filter.MarshalTo(data[i:])
+		n9, err := m.Filter.MarshalTo(data[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n8
+		i += n9
 	}
 	if m.Limit != 0 {
 		data[i] = 0x10
@@ -1166,11 +1311,11 @@ func (m *QueryRequest) MarshalTo(data []byte) (int, error) {
 		data[i] = 0x1a
 		i++
 		i = encodeVarintProtocol(data, i, uint64(m.Keyspace.Size()))
-		n9, err := m.Keyspace.MarshalTo(data[i:])
+		n10, err := m.Keyspace.MarshalTo(data[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n9
+		i += n10
 	}
 	return i, nil
 }
@@ -1224,11 +1369,11 @@ func (m *PeerRequest) MarshalTo(data []byte) (int, error) {
 		data[i] = 0xa
 		i++
 		i = encodeVarintProtocol(data, i, uint64(m.Keyspace.Size()))
-		n10, err := m.Keyspace.MarshalTo(data[i:])
+		n11, err := m.Keyspace.MarshalTo(data[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n10
+		i += n11
 	}
 	if m.Limit != 0 {
 		data[i] = 0x10
@@ -1297,11 +1442,41 @@ func (m *Handshake) MarshalTo(data []byte) (int, error) {
 		data[i] = 0x12
 		i++
 		i = encodeVarintProtocol(data, i, uint64(m.Sender.Size()))
-		n11, err := m.Sender.MarshalTo(data[i:])
+		n12, err := m.Sender.MarshalTo(data[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n11
+		i += n12
+	}
+	return i, nil
+}
+
+func (m *InsertTriples) Marshal() (data []byte, err error) {
+	size := m.Size()
+	data = make([]byte, size)
+	n, err := m.MarshalTo(data)
+	if err != nil {
+		return nil, err
+	}
+	return data[:n], nil
+}
+
+func (m *InsertTriples) MarshalTo(data []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Triples) > 0 {
+		for _, msg := range m.Triples {
+			data[i] = 0xa
+			i++
+			i = encodeVarintProtocol(data, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(data[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
 	}
 	return i, nil
 }
@@ -1338,6 +1513,9 @@ func (m *Message) Size() (n int) {
 	_ = l
 	if m.Message != nil {
 		n += m.Message.Size()
+	}
+	if m.Gossip {
+		n += 2
 	}
 	return n
 }
@@ -1383,6 +1561,15 @@ func (m *Message_Handshake) Size() (n int) {
 	_ = l
 	if m.Handshake != nil {
 		l = m.Handshake.Size()
+		n += 1 + l + sovProtocol(uint64(l))
+	}
+	return n
+}
+func (m *Message_InsertTriples) Size() (n int) {
+	var l int
+	_ = l
+	if m.InsertTriples != nil {
+		l = m.InsertTriples.Size()
 		n += 1 + l + sovProtocol(uint64(l))
 	}
 	return n
@@ -1510,6 +1697,18 @@ func (m *Handshake) Size() (n int) {
 	return n
 }
 
+func (m *InsertTriples) Size() (n int) {
+	var l int
+	_ = l
+	if len(m.Triples) > 0 {
+		for _, e := range m.Triples {
+			l = e.Size()
+			n += 1 + l + sovProtocol(uint64(l))
+		}
+	}
+	return n
+}
+
 func sovProtocol(x uint64) (n int) {
 	for {
 		n++
@@ -1529,6 +1728,7 @@ func (this *Message) String() string {
 	}
 	s := strings.Join([]string{`&Message{`,
 		`Message:` + fmt.Sprintf("%v", this.Message) + `,`,
+		`Gossip:` + fmt.Sprintf("%v", this.Gossip) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -1579,6 +1779,16 @@ func (this *Message_Handshake) String() string {
 	}
 	s := strings.Join([]string{`&Message_Handshake{`,
 		`Handshake:` + strings.Replace(fmt.Sprintf("%v", this.Handshake), "Handshake", "Handshake", 1) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *Message_InsertTriples) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&Message_InsertTriples{`,
+		`InsertTriples:` + strings.Replace(fmt.Sprintf("%v", this.InsertTriples), "InsertTriples", "InsertTriples", 1) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -1670,6 +1880,16 @@ func (this *Handshake) String() string {
 	s := strings.Join([]string{`&Handshake{`,
 		`Response:` + fmt.Sprintf("%v", this.Response) + `,`,
 		`Sender:` + strings.Replace(fmt.Sprintf("%v", this.Sender), "Peer", "Peer", 1) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *InsertTriples) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&InsertTriples{`,
+		`Triples:` + strings.Replace(fmt.Sprintf("%v", this.Triples), "Triple", "Triple", 1) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -1870,6 +2090,58 @@ func (m *Message) Unmarshal(data []byte) error {
 				return err
 			}
 			m.Message = &Message_Handshake{v}
+			iNdEx = postIndex
+		case 7:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Gossip", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowProtocol
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[iNdEx]
+				iNdEx++
+				v |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.Gossip = bool(v != 0)
+		case 8:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field InsertTriples", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowProtocol
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthProtocol
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &InsertTriples{}
+			if err := v.Unmarshal(data[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.Message = &Message_InsertTriples{v}
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -2794,6 +3066,87 @@ func (m *Handshake) Unmarshal(data []byte) error {
 				m.Sender = &Peer{}
 			}
 			if err := m.Sender.Unmarshal(data[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipProtocol(data[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthProtocol
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *InsertTriples) Unmarshal(data []byte) error {
+	l := len(data)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowProtocol
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := data[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: InsertTriples: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: InsertTriples: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Triples", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowProtocol
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthProtocol
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Triples = append(m.Triples, &Triple{})
+			if err := m.Triples[len(m.Triples)-1].Unmarshal(data[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
