@@ -82,7 +82,7 @@ func (key *PrivateKey) SignTriple(t *protocol.Triple) error {
 // AuthorID generates a unique ID based on the murmur hash of the public key.
 func (key *PrivateKey) AuthorID() (string, error) {
 	hasher := murmur3.New64()
-	buf, err := x509.MarshalPKIXPublicKey((*ecdsa.PrivateKey)(key).PublicKey)
+	buf, err := x509.MarshalPKIXPublicKey(&(*ecdsa.PrivateKey)(key).PublicKey)
 	if err != nil {
 		return "", err
 	}

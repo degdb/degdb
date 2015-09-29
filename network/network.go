@@ -217,9 +217,10 @@ func (s *Server) Broadcast(hash uint64, msg *protocol.Message) error {
 	a := hash
 	for _, peer := range s.Peers {
 		keyspace := peer.Peer.GetKeyspace()
-		s := keyspace.Start
+		st := keyspace.Start
 		e := keyspace.End
-		if s <= a && a < e || a < e && e < s || e < s && s <= a {
+		if st <= a && a < e || a < e && e < st || e < st && st <= a {
+			s.Printf("Broadcasting to %s", peer.Peer.Id)
 			if err := peer.Send(msg); err != nil {
 				return err
 			}
@@ -236,7 +237,7 @@ func (s *Server) handleConnection(conn *Conn) error {
 		if err != nil {
 			break
 		}
-		if string(header) == "GET " {
+		if string(header) == "GET " || string(header) == "POST" {
 			s.Printf("Incoming HTTP connection.")
 			s.handleHTTPConnection(header, conn)
 			return nil

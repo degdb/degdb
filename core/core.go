@@ -85,13 +85,22 @@ func (s *server) init() error {
 	s.network.Mux.Handle("/static/", http.StripPrefix("/static/",
 		http.FileServer(rice.MustFindBox("../static").HTTPBox())))
 
-	// API endpoints
+	// HTTP endpoints
 	s.network.Mux.HandleFunc("/api/v1/peers", s.handlePeers)
 	s.network.Mux.HandleFunc("/api/v1/triples", s.handleTriples)
 	s.network.Mux.HandleFunc("/api/v1/insert", s.handleInsertTriple)
 
+	// Binary endpoints
+	s.network.Handle("InsertTriples", s.handleInsertTriples)
+
 	return nil
 }
+
+func (s *server) handleInsertTriples(conn *network.Conn, msg *protocol.Message) {
+	// TODO(d4l3k): Verify correct keyspace
+	s.ts.Insert(msg.GetInsertTriples().Triples)
+}
+
 func (s *server) handlePeers(w http.ResponseWriter, r *http.Request) {
 	var peers []*protocol.Peer
 	for _, peer := range s.network.Peers {
@@ -99,9 +108,11 @@ func (s *server) handlePeers(w http.ResponseWriter, r *http.Request) {
 	}
 	json.NewEncoder(w).Encode(peers)
 }
+
 func (s *server) handleNotFound(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, fmt.Sprintf("degdb: file not found %s", r.URL), 404)
 }
+
 func (s *server) handleInsertTriple(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		http.Error(w, "endpoint needs POST", 400)
@@ -126,18 +137,16 @@ func (s *server) handleInsertTriple(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), 500)
 		return
 	}
-	//s.ts.Insert([]*protocol.Triple{triple})
-	// TODO(d4l3k): Insert triple
-	hash := murmur3.Sum64([]byte(triple.Subj))
-	err := s.network.Broadcast(hash, &protocol.Message{
+	msg := &protocol.Message{
 		Message: &protocol.Message_InsertTriples{
 			InsertTriples: &protocol.InsertTriples{
 				Triples: []*protocol.Triple{triple},
 			},
 		},
 		Gossip: true,
-	})
-	if err != nil {
+	}
+	hash := murmur3.Sum64([]byte(triple.Subj))
+	if err := s.network.Broadcast(hash, msg); err != nil {
 		http.Error(w, err.Error(), 400)
 		return
 	}
