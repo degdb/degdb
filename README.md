@@ -6,23 +6,17 @@ Distributed Economic Graph Database
 
 [Design Doc/Ramble](https://docs.google.com/document/d/1Z1zUMOGzsBLOU1JoeY-CLFI9eSMajrnQraBvSybjP8I/edit)
 
-Initial implementation done at PennApps 2015 Fall.
+Initial implementation done at PennApps 2015 Fall. It can be located in the `old/` directory. There is a slow rewrite/redesign happening.
 
-There is a slow rewrite/redesign happening.
+## Running
+```bash
+go run main.go -new -peers="example.com:8181,foo.io:8182"
+```
 
-## WTFQuery Language
-
-This is a weird combination of Go syntax and other stuff. Due to efficiency, it's parsed using the Go parser library. Future changes include supporting Gremlin and other actual graph languages.
-
-```go
-// Fetch by Id and then get the name
-Id("degdb:foo").Preds("/type/object/name")
-
-// Find all topics with name "Barack Obama"
-Filter("/type/object/name" == "Barack Obama")
-
-// Find all nodes
-All()
+## Development
+For development purposes you can launch multiple nodes within a single binary. This can only be used in development and disables connecting to external peers.
+```bash
+go run main.go -new -port=8181 -nodes=10
 ```
 
 ## License

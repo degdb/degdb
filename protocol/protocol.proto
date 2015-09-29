@@ -10,6 +10,7 @@ message Message {
 
     Handshake handshake = 6;
   }
+  bool gossip = 7;
 }
 
 message Triple {
