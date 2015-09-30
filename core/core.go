@@ -2,19 +2,14 @@
 package core
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
 	"time"
 
-	"github.com/GeertJohan/go.rice"
 	"github.com/degdb/degdb/crypto"
 	"github.com/degdb/degdb/network"
-	"github.com/degdb/degdb/protocol"
 	"github.com/degdb/degdb/triplestore"
-	"github.com/spaolacci/murmur3"
 )
 
 type server struct {
@@ -81,93 +76,12 @@ func (s *server) init() error {
 	}
 	s.network = ns
 
-	s.network.Mux.HandleFunc("/", s.handleNotFound)
-	s.network.Mux.Handle("/static/", http.StripPrefix("/static/",
-		http.FileServer(rice.MustFindBox("../static").HTTPBox())))
-
-	// HTTP endpoints
-	s.network.Mux.HandleFunc("/api/v1/peers", s.handlePeers)
-	s.network.Mux.HandleFunc("/api/v1/triples", s.handleTriples)
-	s.network.Mux.HandleFunc("/api/v1/insert", s.handleInsertTriple)
-	s.network.Mux.HandleFunc("/api/v1/query", s.handleQuery)
-
-	// Binary endpoints
-	s.network.Handle("InsertTriples", s.handleInsertTriples)
+	if err := s.initHTTP(); err != nil {
+		return err
+	}
+	if err := s.initBinary(); err != nil {
+		return err
+	}
 
 	return nil
-}
-
-func (s *server) handleQuery(w http.ResponseWriter, r *http.Request) {
-	err := r.ParseForm()
-	if err != nil {
-		http.Error(w, err.Error(), 400)
-		return
-	}
-	q := r.FormValue("q")
-	log.Printf("Query: %s", q)
-}
-
-func (s *server) handleInsertTriples(conn *network.Conn, msg *protocol.Message) {
-	// TODO(d4l3k): Verify correct keyspace
-	s.ts.Insert(msg.GetInsertTriples().Triples)
-}
-
-func (s *server) handlePeers(w http.ResponseWriter, r *http.Request) {
-	var peers []*protocol.Peer
-	for _, peer := range s.network.Peers {
-		peers = append(peers, peer.Peer)
-	}
-	json.NewEncoder(w).Encode(peers)
-}
-
-func (s *server) handleNotFound(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, fmt.Sprintf("degdb: file not found %s", r.URL), 404)
-}
-
-func (s *server) handleInsertTriple(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		http.Error(w, "endpoint needs POST", 400)
-		return
-	}
-	err := r.ParseForm()
-	if err != nil {
-		http.Error(w, err.Error(), 400)
-		return
-	}
-	subj := r.FormValue("subj")
-	pred := r.FormValue("pred")
-	obj := r.FormValue("obj")
-	lang := r.FormValue("lang")
-	triple := &protocol.Triple{
-		Subj: subj,
-		Pred: pred,
-		Obj:  obj,
-		Lang: lang,
-	}
-	if err := s.crypto.SignTriple(triple); err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
-	msg := &protocol.Message{
-		Message: &protocol.Message_InsertTriples{
-			InsertTriples: &protocol.InsertTriples{
-				Triples: []*protocol.Triple{triple},
-			},
-		},
-		Gossip: true,
-	}
-	hash := murmur3.Sum64([]byte(triple.Subj))
-	if err := s.network.Broadcast(hash, msg); err != nil {
-		http.Error(w, err.Error(), 400)
-		return
-	}
-	http.Redirect(w, r, "/static/insert.html", 307)
-}
-func (s *server) handleTriples(w http.ResponseWriter, r *http.Request) {
-	triples, err := s.ts.Query(&protocol.Triple{}, -1)
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
-	json.NewEncoder(w).Encode(triples)
 }
