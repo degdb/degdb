@@ -89,11 +89,22 @@ func (s *server) init() error {
 	s.network.Mux.HandleFunc("/api/v1/peers", s.handlePeers)
 	s.network.Mux.HandleFunc("/api/v1/triples", s.handleTriples)
 	s.network.Mux.HandleFunc("/api/v1/insert", s.handleInsertTriple)
+	s.network.Mux.HandleFunc("/api/v1/query", s.handleQuery)
 
 	// Binary endpoints
 	s.network.Handle("InsertTriples", s.handleInsertTriples)
 
 	return nil
+}
+
+func (s *server) handleQuery(w http.ResponseWriter, r *http.Request) {
+	err := r.ParseForm()
+	if err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+	q := r.FormValue("q")
+	log.Printf("Query: %s", q)
 }
 
 func (s *server) handleInsertTriples(conn *network.Conn, msg *protocol.Message) {

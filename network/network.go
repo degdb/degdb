@@ -214,12 +214,8 @@ func (s *Server) Handle(typ string, f protocolHandler) {
 
 // Broadcast sends a message to all peers with that have the hash in their keyspace.
 func (s *Server) Broadcast(hash uint64, msg *protocol.Message) error {
-	a := hash
 	for _, peer := range s.Peers {
-		keyspace := peer.Peer.GetKeyspace()
-		st := keyspace.Start
-		e := keyspace.End
-		if st <= a && a < e || a < e && e < st || e < st && st <= a {
+		if peer.Peer.GetKeyspace().Includes(hash) {
 			s.Printf("Broadcasting to %s", peer.Peer.Id)
 			if err := peer.Send(msg); err != nil {
 				return err
