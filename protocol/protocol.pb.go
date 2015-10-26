@@ -26,10 +26,11 @@ import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
 
+import strconv "strconv"
+
 import strings "strings"
 import github_com_gogo_protobuf_proto "github.com/gogo/protobuf/proto"
 import sort "sort"
-import strconv "strconv"
 import reflect "reflect"
 
 import io "io"
@@ -38,6 +39,28 @@ import io "io"
 var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
+
+type QueryRequest_Type int32
+
+const (
+	UNKNOWN QueryRequest_Type = 0
+	BASIC   QueryRequest_Type = 1
+	GREMLIN QueryRequest_Type = 2
+	MQL     QueryRequest_Type = 3
+)
+
+var QueryRequest_Type_name = map[int32]string{
+	0: "UNKNOWN",
+	1: "BASIC",
+	2: "GREMLIN",
+	3: "MQL",
+}
+var QueryRequest_Type_value = map[string]int32{
+	"UNKNOWN": 0,
+	"BASIC":   1,
+	"GREMLIN": 2,
+	"MQL":     3,
+}
 
 type Message struct {
 	// Types that are valid to be assigned to Message:
@@ -290,9 +313,11 @@ func (*Keyspace) ProtoMessage() {}
 // keyspace - is the range of topic ID hashes to provide.
 // limit - max number of results to return.
 type QueryRequest struct {
-	Filter   *Triple   `protobuf:"bytes,1,opt,name=filter" json:"filter,omitempty"`
-	Limit    int32     `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
-	Keyspace *Keyspace `protobuf:"bytes,3,opt,name=keyspace" json:"keyspace,omitempty"`
+	Filter   *Triple           `protobuf:"bytes,1,opt,name=filter" json:"filter,omitempty"`
+	Limit    int32             `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
+	Keyspace *Keyspace         `protobuf:"bytes,3,opt,name=keyspace" json:"keyspace,omitempty"`
+	Type     QueryRequest_Type `protobuf:"varint,4,opt,name=type,proto3,enum=QueryRequest_Type" json:"type,omitempty"`
+	Query    string            `protobuf:"bytes,5,opt,name=query,proto3" json:"query,omitempty"`
 }
 
 func (m *QueryRequest) Reset()      { *m = QueryRequest{} }
@@ -385,6 +410,16 @@ func (m *InsertTriples) GetTriples() []*Triple {
 	return nil
 }
 
+func init() {
+	proto.RegisterEnum("QueryRequest_Type", QueryRequest_Type_name, QueryRequest_Type_value)
+}
+func (x QueryRequest_Type) String() string {
+	s, ok := QueryRequest_Type_name[int32(x)]
+	if ok {
+		return s
+	}
+	return strconv.Itoa(int(x))
+}
 func (this *Message) Equal(that interface{}) bool {
 	if that == nil {
 		if this == nil {
@@ -702,6 +737,12 @@ func (this *QueryRequest) Equal(that interface{}) bool {
 	if !this.Keyspace.Equal(that1.Keyspace) {
 		return false
 	}
+	if this.Type != that1.Type {
+		return false
+	}
+	if this.Query != that1.Query {
+		return false
+	}
 	return true
 }
 func (this *QueryResponse) Equal(that interface{}) bool {
@@ -955,7 +996,7 @@ func (this *QueryRequest) GoString() string {
 	if this == nil {
 		return "nil"
 	}
-	s := make([]string, 0, 7)
+	s := make([]string, 0, 9)
 	s = append(s, "&protocol.QueryRequest{")
 	if this.Filter != nil {
 		s = append(s, "Filter: "+fmt.Sprintf("%#v", this.Filter)+",\n")
@@ -964,6 +1005,8 @@ func (this *QueryRequest) GoString() string {
 	if this.Keyspace != nil {
 		s = append(s, "Keyspace: "+fmt.Sprintf("%#v", this.Keyspace)+",\n")
 	}
+	s = append(s, "Type: "+fmt.Sprintf("%#v", this.Type)+",\n")
+	s = append(s, "Query: "+fmt.Sprintf("%#v", this.Query)+",\n")
 	s = append(s, "}")
 	return strings.Join(s, "")
 }
@@ -1336,6 +1379,17 @@ func (m *QueryRequest) MarshalTo(data []byte) (int, error) {
 		}
 		i += n10
 	}
+	if m.Type != 0 {
+		data[i] = 0x20
+		i++
+		i = encodeVarintProtocol(data, i, uint64(m.Type))
+	}
+	if len(m.Query) > 0 {
+		data[i] = 0x2a
+		i++
+		i = encodeVarintProtocol(data, i, uint64(len(m.Query)))
+		i += copy(data[i:], m.Query)
+	}
 	return i, nil
 }
 
@@ -1668,6 +1722,13 @@ func (m *QueryRequest) Size() (n int) {
 		l = m.Keyspace.Size()
 		n += 1 + l + sovProtocol(uint64(l))
 	}
+	if m.Type != 0 {
+		n += 1 + sovProtocol(uint64(m.Type))
+	}
+	l = len(m.Query)
+	if l > 0 {
+		n += 1 + l + sovProtocol(uint64(l))
+	}
 	return n
 }
 
@@ -1863,6 +1924,8 @@ func (this *QueryRequest) String() string {
 		`Filter:` + strings.Replace(fmt.Sprintf("%v", this.Filter), "Triple", "Triple", 1) + `,`,
 		`Limit:` + fmt.Sprintf("%v", this.Limit) + `,`,
 		`Keyspace:` + strings.Replace(fmt.Sprintf("%v", this.Keyspace), "Keyspace", "Keyspace", 1) + `,`,
+		`Type:` + fmt.Sprintf("%v", this.Type) + `,`,
+		`Query:` + fmt.Sprintf("%v", this.Query) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -2746,6 +2809,54 @@ func (m *QueryRequest) Unmarshal(data []byte) error {
 			if err := m.Keyspace.Unmarshal(data[iNdEx:postIndex]); err != nil {
 				return err
 			}
+			iNdEx = postIndex
+		case 4:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Type", wireType)
+			}
+			m.Type = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowProtocol
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[iNdEx]
+				iNdEx++
+				m.Type |= (QueryRequest_Type(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Query", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowProtocol
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthProtocol
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Query = string(data[iNdEx:postIndex])
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex

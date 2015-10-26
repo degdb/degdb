@@ -50,6 +50,7 @@ message QueryRequest {
   int32 limit = 2;
   Keyspace keyspace = 3;
   enum Type {
+    UNKNOWN = 0;
     BASIC = 1;
     GREMLIN = 2;
     MQL = 3;
