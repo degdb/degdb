@@ -2,9 +2,12 @@ package query
 
 import (
 	"encoding/json"
+	"errors"
 
 	"github.com/degdb/degdb/protocol"
 )
+
+var ErrNotImplemented = errors.New("query protocol type is not implemented")
 
 func Parse(query string) ([]*protocol.Triple, error) {
 	var filters []*protocol.Triple

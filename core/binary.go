@@ -9,6 +9,7 @@ import (
 // initBinary initalizes the binary endpoints.
 func (s *server) initBinary() error {
 	s.network.Handle("InsertTriples", s.handleInsertTriples)
+	s.network.Handle("QueryRequest", s.handleQueryRequest)
 
 	return nil
 }
@@ -33,4 +34,20 @@ func (s *server) handleInsertTriples(conn *network.Conn, msg *protocol.Message) 
 		validTriples = append(validTriples, triple)
 	}
 	s.ts.Insert(validTriples)
+}
+
+func (s *server) handleQueryRequest(conn *network.Conn, msg *protocol.Message) {
+	triples, err := s.ExecuteQuery(msg.GetQueryRequest())
+	resp := &protocol.Message{
+		Message: &protocol.Message_QueryResponse{
+			QueryResponse: &protocol.QueryResponse{
+				Triples: triples,
+			},
+		},
+		ResponseTo: msg.Hash(),
+	}
+	if err != nil {
+		resp.Error = err.Error()
+	}
+	conn.Send(resp)
 }

@@ -8,6 +8,7 @@ import (
 
 	"github.com/GeertJohan/go.rice"
 	"github.com/degdb/degdb/protocol"
+	"github.com/degdb/degdb/query"
 	"github.com/spaolacci/murmur3"
 )
 
@@ -65,7 +66,7 @@ func (s *server) handleInsertTriple(w http.ResponseWriter, r *http.Request) {
 		Gossip: true,
 	}
 	hash := murmur3.Sum64([]byte(triple.Subj))
-	if err := s.network.Broadcast(hash, msg); err != nil {
+	if err := s.network.Broadcast(&hash, msg); err != nil {
 		http.Error(w, err.Error(), 400)
 		return
 	}
@@ -84,6 +85,21 @@ func (s *server) handleQuery(w http.ResponseWriter, r *http.Request) {
 	}
 	q := r.FormValue("q")
 	log.Printf("Query: %s", q)
+	triple, err := query.Parse(q)
+	if err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+	query := &protocol.QueryRequest{
+		Type:   protocol.BASIC,
+		Filter: triple[0],
+	}
+	triples, err := s.ExecuteQuery(query)
+	if err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+	json.NewEncoder(w).Encode(triples)
 }
 
 // handleTriples is a debug method to dump the triple DB into a JSON blob.
