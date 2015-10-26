@@ -1,6 +1,4 @@
-# degdb
-[![Build Status](https://travis-ci.org/degdb/degdb.svg?branch=master)](https://travis-ci.org/DegDB/degdb)
-[![GoDoc](https://godoc.org/github.com/degdb/degdb?status.svg)](https://godoc.org/github.com/DegDB/degdb)
+# degdb [![Build Status](https://travis-ci.org/degdb/degdb.svg?branch=master)](https://travis-ci.org/DegDB/degdb) [![GoDoc](https://godoc.org/github.com/degdb/degdb?status.svg)](https://godoc.org/github.com/DegDB/degdb)
 
 Distributed Economic Graph Database
 
