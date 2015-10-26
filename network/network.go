@@ -214,12 +214,28 @@ func (s *Server) Handle(typ string, f protocolHandler) {
 
 // Broadcast sends a message to all peers with that have the hash in their keyspace.
 func (s *Server) Broadcast(hash uint64, msg *protocol.Message) error {
+	alreadySentTo := make(map[uint64]bool)
+	if msg.Gossip {
+		for _, to := range msg.SentTo {
+			alreadySentTo[to] = true
+		}
+	}
+	sentTo := []uint64{murmur3.Sum64([]byte(s.LocalPeer().Id))}
+	var toPeers []*Conn
 	for _, peer := range s.Peers {
-		if peer.Peer.GetKeyspace().Includes(hash) {
-			s.Printf("Broadcasting to %s", peer.Peer.Id)
-			if err := peer.Send(msg); err != nil {
-				return err
-			}
+		peerHash := murmur3.Sum64([]byte(peer.Peer.Id))
+		if peer.Peer.GetKeyspace().Includes(hash) && !alreadySentTo[peerHash] {
+			sentTo = append(sentTo, peerHash)
+			toPeers = append(toPeers, peer)
+		}
+	}
+	if msg.Gossip {
+		msg.SentTo = append(msg.SentTo, sentTo...)
+	}
+	for _, peer := range toPeers {
+		s.Printf("Broadcasting to %s", peer.Peer.Id)
+		if err := peer.Send(msg); err != nil {
+			return err
 		}
 	}
 	return nil

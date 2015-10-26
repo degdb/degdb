@@ -48,7 +48,10 @@ type Message struct {
 	//	*Message_Handshake
 	//	*Message_InsertTriples
 	Message isMessage_Message `protobuf_oneof:"message"`
-	Gossip  bool              `protobuf:"varint,7,opt,name=gossip,proto3" json:"gossip,omitempty"`
+	// gossip is whether the message should be forwarded.
+	Gossip bool `protobuf:"varint,7,opt,name=gossip,proto3" json:"gossip,omitempty"`
+	// sent_to is a list of murmur3 hashes that this message has already been sent to.
+	SentTo []uint64 `protobuf:"varint,9,rep,name=sent_to" json:"sent_to,omitempty"`
 }
 
 func (m *Message) Reset()      { *m = Message{} }
@@ -413,6 +416,14 @@ func (this *Message) Equal(that interface{}) bool {
 	}
 	if this.Gossip != that1.Gossip {
 		return false
+	}
+	if len(this.SentTo) != len(that1.SentTo) {
+		return false
+	}
+	for i := range this.SentTo {
+		if this.SentTo[i] != that1.SentTo[i] {
+			return false
+		}
 	}
 	return true
 }
@@ -843,12 +854,13 @@ func (this *Message) GoString() string {
 	if this == nil {
 		return "nil"
 	}
-	s := make([]string, 0, 11)
+	s := make([]string, 0, 12)
 	s = append(s, "&protocol.Message{")
 	if this.Message != nil {
 		s = append(s, "Message: "+fmt.Sprintf("%#v", this.Message)+",\n")
 	}
 	s = append(s, "Gossip: "+fmt.Sprintf("%#v", this.Gossip)+",\n")
+	s = append(s, "SentTo: "+fmt.Sprintf("%#v", this.SentTo)+",\n")
 	s = append(s, "}")
 	return strings.Join(s, "")
 }
@@ -1073,6 +1085,13 @@ func (m *Message) MarshalTo(data []byte) (int, error) {
 			data[i] = 0
 		}
 		i++
+	}
+	if len(m.SentTo) > 0 {
+		for _, num := range m.SentTo {
+			data[i] = 0x48
+			i++
+			i = encodeVarintProtocol(data, i, uint64(num))
+		}
 	}
 	return i, nil
 }
@@ -1517,6 +1536,11 @@ func (m *Message) Size() (n int) {
 	if m.Gossip {
 		n += 2
 	}
+	if len(m.SentTo) > 0 {
+		for _, e := range m.SentTo {
+			n += 1 + sovProtocol(uint64(e))
+		}
+	}
 	return n
 }
 
@@ -1729,6 +1753,7 @@ func (this *Message) String() string {
 	s := strings.Join([]string{`&Message{`,
 		`Message:` + fmt.Sprintf("%v", this.Message) + `,`,
 		`Gossip:` + fmt.Sprintf("%v", this.Gossip) + `,`,
+		`SentTo:` + fmt.Sprintf("%v", this.SentTo) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -2143,6 +2168,26 @@ func (m *Message) Unmarshal(data []byte) error {
 			}
 			m.Message = &Message_InsertTriples{v}
 			iNdEx = postIndex
+		case 9:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SentTo", wireType)
+			}
+			var v uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowProtocol
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[iNdEx]
+				iNdEx++
+				v |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.SentTo = append(m.SentTo, v)
 		default:
 			iNdEx = preIndex
 			skippy, err := skipProtocol(data[iNdEx:])

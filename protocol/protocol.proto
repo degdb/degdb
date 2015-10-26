@@ -12,7 +12,10 @@ message Message {
 
     InsertTriples insert_triples = 8;
   }
+  // gossip is whether the message should be forwarded.
   bool gossip = 7;
+  // sent_to is a list of murmur3 hashes that this message has already been sent to.
+  repeated uint64 sent_to = 9;
 }
 
 message Triple {
