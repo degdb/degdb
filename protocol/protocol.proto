@@ -49,6 +49,13 @@ message QueryRequest {
   Triple filter = 1;
   int32 limit = 2;
   Keyspace keyspace = 3;
+  enum Type {
+    BASIC = 1;
+    GREMLIN = 2;
+    MQL = 3;
+  }
+  Type type = 4;
+  string query = 5;
 }
 
 message QueryResponse {
