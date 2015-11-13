@@ -1,9 +1,41 @@
 package network
 
 import (
+	"fmt"
 	"net"
+	"net/http"
 	"time"
 )
+
+func (s *Server) initHTTPRouting() {
+	s.mux = http.NewServeMux()
+	s.HTTP = &http.Server{Handler: s.mux}
+	s.mux.HandleFunc("/", s.handleNotFound)
+}
+
+// handleNotFound renders a 404 page for missing pages.
+func (s *Server) handleNotFound(w http.ResponseWriter, r *http.Request) {
+	if r.URL.String() == "/" {
+		html := "<pre>"
+		for _, e := range s.httpEndpoints {
+			html += "<a href='" + e + "'>" + e + "</a>\n"
+		}
+		html += "</pre>"
+		w.Header().Add("Content-Type", "text/html")
+		w.Write([]byte(html))
+	} else {
+		http.Error(w, fmt.Sprintf("degdb: file not found %s", r.URL), 404)
+	}
+}
+
+func (s *Server) HTTPHandleFunc(route string, handler func(w http.ResponseWriter, r *http.Request)) {
+	s.httpEndpoints = append(s.httpEndpoints, route)
+	s.mux.HandleFunc(route, handler)
+}
+func (s *Server) HTTPHandle(route string, handler http.Handler) {
+	s.httpEndpoints = append(s.httpEndpoints, route)
+	s.mux.Handle(route, handler)
+}
 
 func (s *Server) listenHTTP() {
 	if err := s.HTTP.Serve(s.listener); err != nil {

@@ -24,8 +24,9 @@ type Server struct {
 	Port int
 	NAT  stun.NATType
 
-	HTTP *http.Server
-	Mux  *http.ServeMux
+	HTTP          *http.Server
+	mux           *http.ServeMux
+	httpEndpoints []string
 
 	Peers map[string]*Conn
 
@@ -84,8 +85,8 @@ func NewServer(log *log.Logger, port int) (*Server, error) {
 		addr:   tcpAddr,
 		accept: make(chan *httpConn, 10),
 	}
-	s.Mux = http.NewServeMux()
-	s.HTTP = &http.Server{Handler: s.Mux}
+
+	s.initHTTPRouting()
 
 	// Handlers
 	s.Handle("Handshake", s.handleHandshake)

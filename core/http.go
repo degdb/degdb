@@ -2,7 +2,6 @@ package core
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 
@@ -13,22 +12,16 @@ import (
 )
 
 func (s *server) initHTTP() error {
-	s.network.Mux.HandleFunc("/", s.handleNotFound)
-	s.network.Mux.Handle("/static/", http.StripPrefix("/static/",
+	s.network.HTTPHandle("/static/", http.StripPrefix("/static/",
 		http.FileServer(rice.MustFindBox("../static").HTTPBox())))
 
 	// HTTP endpoints
-	s.network.Mux.HandleFunc("/api/v1/insert", s.handleInsertTriple)
-	s.network.Mux.HandleFunc("/api/v1/query", s.handleQuery)
-	s.network.Mux.HandleFunc("/api/v1/triples", s.handleTriples)
-	s.network.Mux.HandleFunc("/api/v1/peers", s.handlePeers)
+	s.network.HTTPHandleFunc("/api/v1/insert", s.handleInsertTriple)
+	s.network.HTTPHandleFunc("/api/v1/query", s.handleQuery)
+	s.network.HTTPHandleFunc("/api/v1/triples", s.handleTriples)
+	s.network.HTTPHandleFunc("/api/v1/peers", s.handlePeers)
 
 	return nil
-}
-
-// handleNotFound renders a 404 page for missing pages.
-func (s *server) handleNotFound(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, fmt.Sprintf("degdb: file not found %s", r.URL), 404)
 }
 
 // handleInsertTriple inserts a triple into the graph.

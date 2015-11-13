@@ -1,0 +1,61 @@
+<link rel="import" href="common/common.html">
+<style>
+table td {
+  position: relative;
+}
+table td:last-child {
+  width: 100%;
+}
+table td div {
+  background-color: green;
+  position: absolute;
+  height: 25px;
+}
+</style>
+
+<div class="container">
+  <h1>degdb Peer Keyspace Visualizer</h1>
+  <p class="flow-text">This visualizes all the peers currently connected to this node and their keyspaces. Updates every 10 seconds.</p>
+  <table>
+    <thead>
+      <th>
+        Node
+      </th>
+    </thead>
+    <tbody>
+    </tbody>
+  </table>
+  <p class="flow-text">Last updated: <span id="time"></span></p>
+</div>
+<script>
+'use strict';
+
+// Keyspace is uint64
+const maxKey = Math.pow(2,64);
+
+function renderKeyspace() {
+  $.getJSON('/api/v1/peers', function(peers) {
+    console.log(peers);
+    let html = '';
+    peers.sort(function(a, b) {
+      return a.id > b.id;
+    });
+    peers.forEach(function(peer) {
+      let left = (peer.keyspace.start/maxKey)*100.0;
+      let right = (peer.keyspace.end/maxKey)*100.0;
+      html += '<tr><td>'+peer.id+'</td><td><div class="progress">';
+      if (left > right) {
+        html += '<div class="determinate" style="width:'+(right).toFixed(2)+'%"></div>';
+        html += '<div class="determinate" style="left:'+left.toFixed(2)+'%;width:'+(100-left).toFixed(2)+'%"></div>';
+      } else {
+        html += '<div class="determinate" style="left:'+left.toFixed(2)+'%;width:'+(right-left).toFixed(2)+'%"></div>';
+      }
+      html += '</div></td>';
+    });
+    $('tbody').html(html);
+    $('#time').text(new Date());
+  });
+}
+renderKeyspace();
+setInterval(renderKeyspace, 10000);
+</script>
