@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"sync"
 
 	"github.com/degdb/degdb/core"
 	"github.com/degdb/degdb/old"
@@ -36,19 +37,18 @@ func main() {
 	disk := int(diskFloat)
 
 	if *useNewDegDB {
+		var wg sync.WaitGroup
 		for i := 0; i < *nodes; i++ {
 			port := *bindPort + i
 			launchPeers := peers
-			launch := func() {
+			go func() {
 				core.Main(port, launchPeers, disk)
-			}
-			if i == (*nodes - 1) {
-				launch()
-			} else {
-				go launch()
-			}
+				wg.Done()
+			}()
+			wg.Add(1)
 			peers = []string{fmt.Sprintf("localhost:%d", port)}
 		}
+		wg.Wait()
 	} else {
 		old.Main(*bindPort)
 	}
