@@ -161,7 +161,7 @@ func (s *Server) handleHandshake(conn *Conn, msg *protocol.Message) {
 
 func (s *Server) connHeartbeat(conn *Conn) {
 	ticker := time.NewTicker(time.Second * 60)
-	for range ticker.C {
+	for _ = range ticker.C {
 		err := s.sendPeerRequest(conn)
 		if err == io.EOF {
 			ticker.Stop()
