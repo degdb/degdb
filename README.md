@@ -19,7 +19,7 @@ go run main.go -new -port=8181 -nodes=10
 
 ## License
 
-DegDB is licensed under the MIT license.
+DegDB is licensed under the [MIT license](https://opensource.org/licenses/MIT).
 
 ## Contributors
 
