@@ -2,6 +2,7 @@ package core
 
 import (
 	"encoding/json"
+	"io/ioutil"
 	"log"
 	"net/http"
 
@@ -30,41 +31,39 @@ func (s *server) handleInsertTriple(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "endpoint needs POST", 400)
 		return
 	}
-	err := r.ParseForm()
-	if err != nil {
-		http.Error(w, err.Error(), 400)
-		return
-	}
-	subj := r.FormValue("subj")
-	pred := r.FormValue("pred")
-	obj := r.FormValue("obj")
-	lang := r.FormValue("lang")
-	triple := &protocol.Triple{
-		Subj: subj,
-		Pred: pred,
-		Obj:  obj,
-		Lang: lang,
-	}
-	// TODO(d4l3k): This should ideally be refactored and force the client to presign the triple.
-	if err := s.crypto.SignTriple(triple); err != nil {
+	body, _ := ioutil.ReadAll(r.Body)
+	var triples []*protocol.Triple
+	if err := json.Unmarshal(body, &triples); err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
-	msg := &protocol.Message{
-		Message: &protocol.Message_InsertTriples{
-			InsertTriples: &protocol.InsertTriples{
-				Triples: []*protocol.Triple{triple},
-			},
-		},
-		Gossip: true,
+
+	hashes := make(map[uint64][]*protocol.Triple)
+	for _, triple := range triples {
+		// TODO(d4l3k): This should ideally be refactored and force the client to presign the triple.
+		if err := s.crypto.SignTriple(triple); err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		hash := murmur3.Sum64([]byte(triple.Subj))
+		hashes[hash] = append(hashes[hash], triple)
 	}
-	hash := murmur3.Sum64([]byte(triple.Subj))
-	if err := s.network.Broadcast(&hash, msg); err != nil {
-		http.Error(w, err.Error(), 400)
-		return
-	}
-	if s.network.LocalPeer().Keyspace.Includes(hash) {
-		s.ts.Insert(msg.GetInsertTriples().Triples)
+
+	for hash, triples := range hashes {
+		msg := &protocol.Message{
+			Message: &protocol.Message_InsertTriples{
+				InsertTriples: &protocol.InsertTriples{
+					Triples: triples,
+				}},
+			Gossip: true,
+		}
+		if err := s.network.Broadcast(&hash, msg); err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+		if s.network.LocalPeer().Keyspace.Includes(hash) {
+			s.ts.Insert(triples)
+		}
 	}
 	http.Redirect(w, r, "/static/insert.html", 307)
 }

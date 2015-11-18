@@ -4,6 +4,7 @@ package network
 import (
 	"encoding/binary"
 	"fmt"
+	"io"
 	"log"
 	"math"
 	"net"
@@ -12,9 +13,12 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/ccding/go-stun/stun"
 	"github.com/degdb/degdb/protocol"
+	"github.com/dustin/go-humanize"
+	"github.com/fatih/color"
 	"github.com/spaolacci/murmur3"
 )
 
@@ -97,6 +101,8 @@ func NewServer(log *log.Logger, port int) (*Server, error) {
 }
 
 func (s *Server) handlePeerNotify(conn *Conn, msg *protocol.Message) {
+	conn.peerRequest <- true
+	s.Printf("PeerNotify %+v", conn)
 	peers := msg.GetPeerNotify().Peers
 	for _, peer := range peers {
 		if _, ok := s.Peers[peer.Id]; !ok {
@@ -132,22 +138,65 @@ func (s *Server) handlePeerRequest(conn *Conn, msg *protocol.Message) {
 func (s *Server) handleHandshake(conn *Conn, msg *protocol.Message) {
 	handshake := msg.GetHandshake()
 	conn.Peer = handshake.GetSender()
+	if peer := s.Peers[conn.Peer.Id]; peer != nil {
+		s.Printf("Ignoring duplicate peer %s.", conn.PrettyID())
+		if err := conn.Close(); err != nil && err != io.EOF {
+			s.Printf("ERR closing connection %s", err)
+		}
+		return
+	}
 	s.Peers[conn.Peer.Id] = conn
-	s.Printf("New peer %s", conn.Peer.Id)
+	s.Print(color.GreenString("New peer %s", conn.PrettyID()))
 	if !handshake.Response {
 		if err := s.sendHandshake(conn, true); err != nil {
-			log.Printf("ERR sendHandshake %s", err)
+			s.Printf("ERR sendHandshake %s", err)
 		}
 	} else {
-		msg := &protocol.Message{Message: &protocol.Message_PeerRequest{
-			PeerRequest: &protocol.PeerRequest{
-				Limit: -1,
-				//Keyspace: s.LocalPeer().Keyspace,
-			}}}
-		if err := conn.Send(msg); err != nil {
-			log.Printf("ERR sending PeerRequest: %s", err)
+		if err := s.sendPeerRequest(conn); err != nil {
+			s.Printf("ERR sendPeerRequest %s", err)
 		}
 	}
+	go s.connHeartbeat(conn)
+}
+
+func (s *Server) connHeartbeat(conn *Conn) {
+	ticker := time.NewTicker(time.Second * 60)
+	for range ticker.C {
+		err := s.sendPeerRequest(conn)
+		if err == io.EOF {
+			ticker.Stop()
+		} else if err != nil {
+			s.Printf("ERR sendPeerRequest %s", err)
+		}
+	}
+}
+
+func (s *Server) sendPeerRequest(conn *Conn) error {
+	msg := &protocol.Message{Message: &protocol.Message_PeerRequest{
+		PeerRequest: &protocol.PeerRequest{
+			Limit: -1,
+			//Keyspace: s.LocalPeer().Keyspace,
+		}}}
+	conn.peerRequest = make(chan bool, 1)
+	timeout := make(chan bool, 1)
+	go func() {
+		time.Sleep(10 * time.Second)
+		timeout <- true
+	}()
+	go func() {
+		select {
+		case <-conn.peerRequest:
+		case <-timeout:
+			id := conn.Peer.Id
+			s.Printf(color.RedString("Peer timed out! %s %+v", conn.PrettyID(), conn))
+			delete(s.Peers, id)
+			conn.Close()
+		}
+	}()
+	if err := conn.Send(msg); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (s *Server) sendHandshake(conn *Conn, response bool) error {
@@ -167,7 +216,7 @@ func (s *Server) Connect(addr string) error {
 	if err != nil {
 		return err
 	}
-	conn := &Conn{Conn: tcpConn}
+	conn := s.NewConn(tcpConn)
 
 	if err := s.sendHandshake(conn, false); err != nil {
 		return err
@@ -204,7 +253,7 @@ func (s *Server) Listen() error {
 		}
 		addr := conn.RemoteAddr()
 		s.Printf("New connection from %s", addr)
-		go s.handleConnection(&Conn{Conn: conn})
+		go s.handleConnection(s.NewConn(conn))
 	}
 }
 
@@ -257,7 +306,7 @@ func (s *Server) handleConnection(conn *Conn) error {
 		}
 		length := binary.BigEndian.Uint32(header)
 		if length > 10000000 {
-			err = fmt.Errorf("Packet larger than 10MB! len = %d", length)
+			err = fmt.Errorf("Packet larger than 10MB! len = %s", humanize.SI(float64(length), "B"))
 			break
 		}
 		buf := make([]byte, length)
@@ -270,7 +319,7 @@ func (s *Server) handleConnection(conn *Conn) error {
 		if err = req.Unmarshal(buf); err != nil {
 			break
 		}
-		s.Printf("Message: <- %s, %+v", conn.RemoteAddr(), req)
+		s.Printf("Message: <- %s, %+v", conn.PrettyID(), req.GetMessage())
 		rawType := reflect.TypeOf(req.GetMessage()).Elem().Name()
 		typ := strings.TrimPrefix(rawType, "Message_")
 		handler, ok := s.handlers[typ]
@@ -287,6 +336,9 @@ func (s *Server) handleConnection(conn *Conn) error {
 		s.Printf("Connection closed.")
 	}
 	conn.Close()
+	if conn.Peer != nil {
+		delete(s.Peers, conn.Peer.Id)
+	}
 	return err
 }
 
@@ -294,7 +346,19 @@ func (s *Server) handleConnection(conn *Conn) error {
 type Conn struct {
 	Peer *protocol.Peer
 
+	// Notify channel for heartbeats
+	peerRequest chan bool
+	server      *Server
+
 	net.Conn
+}
+
+// NewConn creates a new Conn with the specified net.Conn.
+func (s *Server) NewConn(c net.Conn) *Conn {
+	return &Conn{
+		Conn:   c,
+		server: s,
+	}
 }
 
 // Send a message to the specified connection.
@@ -306,8 +370,20 @@ func (c *Conn) Send(m *protocol.Message) error {
 	packet := make([]byte, len(msg)+4)
 	binary.BigEndian.PutUint32(packet, uint32(len(msg)))
 	copy(packet[4:], msg)
+
 	if _, err := c.Write(packet); err != nil {
 		return err
 	}
+	c.server.Printf("Message: -> %s, %+v", c.PrettyID(), m.GetMessage())
 	return nil
+}
+
+func (c *Conn) PrettyID() string {
+	var remote string
+	if c.Peer != nil {
+		remote = c.Peer.Id
+	} else {
+		remote = c.RemoteAddr().String()
+	}
+	return color.CyanString(remote)
 }

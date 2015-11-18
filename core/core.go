@@ -7,6 +7,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/fatih/color"
+
 	"github.com/degdb/degdb/crypto"
 	"github.com/degdb/degdb/network"
 	"github.com/degdb/degdb/triplestore"
@@ -25,7 +27,9 @@ type server struct {
 func Main(port int, peers []string, diskAllocated int) {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	s := &server{
-		Logger:        log.New(os.Stdout, fmt.Sprintf(":%d ", port), log.Flags()),
+		Logger: log.New(os.Stdout,
+			color.CyanString(":%d ", port),
+			log.Flags()),
 		diskAllocated: diskAllocated,
 		port:          port,
 	}

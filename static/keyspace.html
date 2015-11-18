@@ -43,7 +43,7 @@ function renderKeyspace() {
     peers.forEach(function(peer) {
       let left = (peer.keyspace.start/maxKey)*100.0;
       let right = (peer.keyspace.end/maxKey)*100.0;
-      html += '<tr><td>'+peer.id+'</td><td><div class="progress">';
+      html += '<tr><td><a href="http://'+peer.id+'">'+peer.id+'</a></td><td><div class="progress">';
       if (left > right) {
         html += '<div class="determinate" style="width:'+(right).toFixed(2)+'%"></div>';
         html += '<div class="determinate" style="left:'+left.toFixed(2)+'%;width:'+(100-left).toFixed(2)+'%"></div>';

@@ -1,21 +1,83 @@
-<h1>Triple Insertion</h1>
-<form action="/api/v1/insert" method="post">
-  <table>
-    <tr>
-      <td>Subject
-      <td><input name="subj" value="degdb:testid">
-    </tr>
-    <tr>
-      <td>Predicate
-      <td><input name="pred" value="https://www.googleapis.com/freebase/v1/rdf/type/object/name">
-    </tr>
-    <tr>
-      <td>Object
-      <td><input name="obj" value="Barack Obama">
-    </tr>
-    <tr>
-      <td></td>
-      <td>
-        <button>Insert</button>
+<link rel="import" href="common/common.html">
+<style>
+#multiple .input-field, #multiple input {
+  margin: 0;
+}
+</style>
+<div class="container">
+  <h1>degdb Triple Insertion</h1>
+  <p class="flow-text">This inserts a single triple into the graph. This should only be used for testing. A private key is required to sign the triples.</p>
+  <h4>Author Details</h4>
+  <div class="row">
+    <div class="input-field col s12">
+      <textarea id="privatekey" class="materialize-textarea"></textarea>
+      <label for="privatekey">Private Key (TODO)</label>
+    </div>
+  </div>
+  <h4>Insert Multiple Triples</h4>
+  <table id="multiple">
+    <thead>
+      <tr>
+      </tr>
+    </thead>
+    <tbody>
+    </tbody>
   </table>
-</form>
+  <button id="addRow" class="waves-effect waves-light btn blue">Add Row</button>
+  <button id="insertMultiple" class="waves-effect waves-light btn">Insert</button>
+  <br>
+
+  <h4>Insert Single Triple</h4>
+  <form action="/api/v1/insert" method="post">
+    <table>
+      <tr>
+        <td>Subject
+        <td><input name="subj" value="degdb:testid">
+      </tr>
+      <tr>
+        <td>Predicate
+        <td><input name="pred" value="https://www.googleapis.com/freebase/v1/rdf/type/object/name">
+      </tr>
+      <tr>
+        <td>Object
+        <td><input name="obj" value="Barack Obama">
+      </tr>
+      <tr>
+        <td></td>
+        <td><button class="waves-effect waves-light btn">Insert</button>
+      </tr>
+    </table>
+  </form>
+</div>
+<script>
+'use strict';
+
+const fields = ['Subject', 'Predicate', 'Object', 'Language'];
+Object.freeze(fields);
+fields.forEach(function(field) {
+  $('#multiple thead tr').append('<th>'+field+'</th>');
+});
+
+function addTripleRow() {
+  const last = $('#multiple tbody tr').last();
+  let row = last.html();
+  if (!row) {
+    row = '';
+    fields.forEach(function(field) {
+      row += '<td><div class="input-field"><input placeholder="'+field+'" type="text" class="validate"></div></td>';
+    });
+  }
+  row = '<tr>' + row + '</tr>';
+  const $row = $(row);
+  $('#multiple tbody').append($row);
+  const inputs = $row.find('input');
+  last.find('input').each(function(i, input) {
+    inputs.eq(i).val($(input).val());
+  });
+}
+addTripleRow();
+$('#addRow').click(addTripleRow);
+$('#insertMultiple').click(function() {
+
+});
+</script>

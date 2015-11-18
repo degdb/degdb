@@ -20,3 +20,8 @@ go run main.go -new -port=8181 -nodes=10
 ## License
 
 DegDB is licensed under the MIT license.
+
+## Contributors
+
+* [Tristan Rice](https://fn.lc)
+* [Chaoyi Zha](https://github.com/cydrobolt)

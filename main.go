@@ -9,6 +9,7 @@ import (
 	"github.com/degdb/degdb/core"
 	"github.com/degdb/degdb/old"
 	"github.com/dustin/go-humanize"
+	"github.com/fatih/color"
 )
 
 var (
@@ -21,6 +22,7 @@ var (
 
 func main() {
 	flag.Parse()
+	color.NoColor = false
 
 	var peers []string
 	if len(*initialPeers) > 0 && *nodes == 1 {
