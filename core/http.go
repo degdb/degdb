@@ -17,6 +17,7 @@ func (s *server) initHTTP() error {
 		http.FileServer(rice.MustFindBox("../static").HTTPBox())))
 
 	// HTTP endpoints
+	s.network.HTTPHandleFunc("/api/v1/info", s.handleInfo)
 	s.network.HTTPHandleFunc("/api/v1/insert", s.handleInsertTriple)
 	s.network.HTTPHandleFunc("/api/v1/query", s.handleQuery)
 	s.network.HTTPHandleFunc("/api/v1/triples", s.handleTriples)
@@ -113,4 +114,9 @@ func (s *server) handlePeers(w http.ResponseWriter, r *http.Request) {
 		peers = append(peers, peer.Peer)
 	}
 	json.NewEncoder(w).Encode(peers)
+}
+
+// handleInfo is a debug method to dump the current known peers.
+func (s *server) handleInfo(w http.ResponseWriter, r *http.Request) {
+	json.NewEncoder(w).Encode(s.network.LocalPeer())
 }
