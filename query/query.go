@@ -11,7 +11,6 @@ import (
 var (
 	ErrNotImplemented = errors.New("query protocol type is not implemented")
 	ErrUnRooted       = errors.New("unrooted queries are not implemented")
-	ErrArrayOp        = errors.New("triplestore QueryArrayOp is not implemented")
 )
 
 func Parse(query string) ([]*protocol.Triple, error) {
