@@ -5,6 +5,7 @@ package triplestore
 import (
 	"log"
 	"os"
+	"strings"
 
 	"github.com/d4l3k/go-disk-usage/du"
 	"github.com/jinzhu/gorm"
@@ -40,11 +41,88 @@ func NewTripleStore(file string, logger *log.Logger) (*TripleStore, error) {
 // Query does a WHERE search with the set fields on query. A limit of -1
 // returns all results.
 func (ts *TripleStore) Query(query *protocol.Triple, limit int) ([]*protocol.Triple, error) {
+	dbq := ts.db.Where(*query)
+	if limit > 0 {
+		dbq = dbq.Limit(limit)
+	}
 	var results []*protocol.Triple
-	if err := ts.db.Where(*query).Limit(limit).Find(&results).Error; err != nil {
+	if err := dbq.Find(&results).Error; err != nil {
 		return nil, err
 	}
 	return results, nil
+}
+
+// QueryArrayOp runs an ArrayOp against the local triple store.
+func (ts *TripleStore) QueryArrayOp(q *protocol.ArrayOp, limit int) ([]*protocol.Triple, error) {
+	query := ArrayOpToSQL(q)
+	args := make([]interface{}, len(query)-1)
+	for i, arg := range query[1:] {
+		args[i] = arg
+	}
+	dbq := ts.db.Where(query[0], args...)
+	if limit > 0 {
+		dbq = dbq.Limit(limit)
+	}
+	var results []*protocol.Triple
+	if err := dbq.Find(&results).Error; err != nil {
+		return nil, err
+	}
+	return results, nil
+}
+
+func ArrayOpToSQL(q *protocol.ArrayOp) []string {
+	var rules []string
+	args := []string{""}
+	switch q.Mode {
+	case protocol.AND, protocol.OR:
+		for _, triple := range q.Triples {
+			sql := TripleToSQL(triple)
+			args = append(args, sql[1:]...)
+			rules = append(rules, sql[0])
+		}
+		for _, arrayOp := range q.Arguments {
+			sql := ArrayOpToSQL(arrayOp)
+			args = append(args, sql[1:]...)
+			rules = append(rules, sql[0])
+		}
+		mode := protocol.ArrayOp_Mode_name[int32(q.Mode)]
+		args[0] = "(" + strings.Join(rules, ") "+mode+" (") + ")"
+	case protocol.NOT:
+		if len(q.Triples) > 0 {
+			args = TripleToSQL(q.Triples[0])
+		} else if len(q.Arguments) > 0 {
+			args = ArrayOpToSQL(q.Arguments[0])
+		}
+		args[0] = "NOT (" + args[0] + ")"
+	}
+	return args
+}
+
+func TripleToSQL(triple *protocol.Triple) []string {
+	var rules []string
+	args := []string{""}
+	if len(triple.Subj) > 0 {
+		rules = append(rules, "subj = ?")
+		args = append(args, triple.Subj)
+	}
+	if len(triple.Pred) > 0 {
+		rules = append(rules, "pred = ?")
+		args = append(args, triple.Pred)
+	}
+	if len(triple.Obj) > 0 {
+		rules = append(rules, "obj = ?")
+		args = append(args, triple.Obj)
+	}
+	if len(triple.Lang) > 0 {
+		rules = append(rules, "lang = ?")
+		args = append(args, triple.Lang)
+	}
+	if len(triple.Author) > 0 {
+		rules = append(rules, "author = ?")
+		args = append(args, triple.Author)
+	}
+	args[0] = strings.Join(rules, " AND ")
+	return args
 }
 
 // Insert saves a bunch of triples and returns the number asserted.

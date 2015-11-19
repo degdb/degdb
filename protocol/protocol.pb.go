@@ -14,6 +14,7 @@
 		Peer
 		Keyspace
 		QueryRequest
+		ArrayOp
 		QueryResponse
 		PeerRequest
 		PeerNotify
@@ -60,6 +61,25 @@ var QueryRequest_Type_value = map[string]int32{
 	"BASIC":   1,
 	"GREMLIN": 2,
 	"MQL":     3,
+}
+
+type ArrayOp_Mode int32
+
+const (
+	OR  ArrayOp_Mode = 0
+	AND ArrayOp_Mode = 1
+	NOT ArrayOp_Mode = 2
+)
+
+var ArrayOp_Mode_name = map[int32]string{
+	0: "OR",
+	1: "AND",
+	2: "NOT",
+}
+var ArrayOp_Mode_value = map[string]int32{
+	"OR":  0,
+	"AND": 1,
+	"NOT": 2,
 }
 
 type Message struct {
@@ -321,7 +341,7 @@ func (*Keyspace) ProtoMessage() {}
 // keyspace - is the range of topic ID hashes to provide.
 // limit - max number of results to return.
 type QueryRequest struct {
-	Filter   *Triple           `protobuf:"bytes,1,opt,name=filter" json:"filter,omitempty"`
+	Steps    []*ArrayOp        `protobuf:"bytes,1,rep,name=steps" json:"steps,omitempty"`
 	Limit    int32             `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
 	Keyspace *Keyspace         `protobuf:"bytes,3,opt,name=keyspace" json:"keyspace,omitempty"`
 	Type     QueryRequest_Type `protobuf:"varint,4,opt,name=type,proto3,enum=QueryRequest_Type" json:"type,omitempty"`
@@ -331,9 +351,9 @@ type QueryRequest struct {
 func (m *QueryRequest) Reset()      { *m = QueryRequest{} }
 func (*QueryRequest) ProtoMessage() {}
 
-func (m *QueryRequest) GetFilter() *Triple {
+func (m *QueryRequest) GetSteps() []*ArrayOp {
 	if m != nil {
-		return m.Filter
+		return m.Steps
 	}
 	return nil
 }
@@ -341,6 +361,29 @@ func (m *QueryRequest) GetFilter() *Triple {
 func (m *QueryRequest) GetKeyspace() *Keyspace {
 	if m != nil {
 		return m.Keyspace
+	}
+	return nil
+}
+
+type ArrayOp struct {
+	Triples   []*Triple    `protobuf:"bytes,1,rep,name=triples" json:"triples,omitempty"`
+	Arguments []*ArrayOp   `protobuf:"bytes,2,rep,name=arguments" json:"arguments,omitempty"`
+	Mode      ArrayOp_Mode `protobuf:"varint,3,opt,name=mode,proto3,enum=ArrayOp_Mode" json:"mode,omitempty"`
+}
+
+func (m *ArrayOp) Reset()      { *m = ArrayOp{} }
+func (*ArrayOp) ProtoMessage() {}
+
+func (m *ArrayOp) GetTriples() []*Triple {
+	if m != nil {
+		return m.Triples
+	}
+	return nil
+}
+
+func (m *ArrayOp) GetArguments() []*ArrayOp {
+	if m != nil {
+		return m.Arguments
 	}
 	return nil
 }
@@ -420,9 +463,17 @@ func (m *InsertTriples) GetTriples() []*Triple {
 
 func init() {
 	proto.RegisterEnum("QueryRequest_Type", QueryRequest_Type_name, QueryRequest_Type_value)
+	proto.RegisterEnum("ArrayOp_Mode", ArrayOp_Mode_name, ArrayOp_Mode_value)
 }
 func (x QueryRequest_Type) String() string {
 	s, ok := QueryRequest_Type_name[int32(x)]
+	if ok {
+		return s
+	}
+	return strconv.Itoa(int(x))
+}
+func (x ArrayOp_Mode) String() string {
+	s, ok := ArrayOp_Mode_name[int32(x)]
 	if ok {
 		return s
 	}
@@ -748,8 +799,13 @@ func (this *QueryRequest) Equal(that interface{}) bool {
 	} else if this == nil {
 		return false
 	}
-	if !this.Filter.Equal(that1.Filter) {
+	if len(this.Steps) != len(that1.Steps) {
 		return false
+	}
+	for i := range this.Steps {
+		if !this.Steps[i].Equal(that1.Steps[i]) {
+			return false
+		}
 	}
 	if this.Limit != that1.Limit {
 		return false
@@ -761,6 +817,47 @@ func (this *QueryRequest) Equal(that interface{}) bool {
 		return false
 	}
 	if this.Query != that1.Query {
+		return false
+	}
+	return true
+}
+func (this *ArrayOp) Equal(that interface{}) bool {
+	if that == nil {
+		if this == nil {
+			return true
+		}
+		return false
+	}
+
+	that1, ok := that.(*ArrayOp)
+	if !ok {
+		return false
+	}
+	if that1 == nil {
+		if this == nil {
+			return true
+		}
+		return false
+	} else if this == nil {
+		return false
+	}
+	if len(this.Triples) != len(that1.Triples) {
+		return false
+	}
+	for i := range this.Triples {
+		if !this.Triples[i].Equal(that1.Triples[i]) {
+			return false
+		}
+	}
+	if len(this.Arguments) != len(that1.Arguments) {
+		return false
+	}
+	for i := range this.Arguments {
+		if !this.Arguments[i].Equal(that1.Arguments[i]) {
+			return false
+		}
+	}
+	if this.Mode != that1.Mode {
 		return false
 	}
 	return true
@@ -1022,8 +1119,8 @@ func (this *QueryRequest) GoString() string {
 	}
 	s := make([]string, 0, 9)
 	s = append(s, "&protocol.QueryRequest{")
-	if this.Filter != nil {
-		s = append(s, "Filter: "+fmt.Sprintf("%#v", this.Filter)+",\n")
+	if this.Steps != nil {
+		s = append(s, "Steps: "+fmt.Sprintf("%#v", this.Steps)+",\n")
 	}
 	s = append(s, "Limit: "+fmt.Sprintf("%#v", this.Limit)+",\n")
 	if this.Keyspace != nil {
@@ -1031,6 +1128,22 @@ func (this *QueryRequest) GoString() string {
 	}
 	s = append(s, "Type: "+fmt.Sprintf("%#v", this.Type)+",\n")
 	s = append(s, "Query: "+fmt.Sprintf("%#v", this.Query)+",\n")
+	s = append(s, "}")
+	return strings.Join(s, "")
+}
+func (this *ArrayOp) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := make([]string, 0, 7)
+	s = append(s, "&protocol.ArrayOp{")
+	if this.Triples != nil {
+		s = append(s, "Triples: "+fmt.Sprintf("%#v", this.Triples)+",\n")
+	}
+	if this.Arguments != nil {
+		s = append(s, "Arguments: "+fmt.Sprintf("%#v", this.Arguments)+",\n")
+	}
+	s = append(s, "Mode: "+fmt.Sprintf("%#v", this.Mode)+",\n")
 	s = append(s, "}")
 	return strings.Join(s, "")
 }
@@ -1404,15 +1517,17 @@ func (m *QueryRequest) MarshalTo(data []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
-	if m.Filter != nil {
-		data[i] = 0xa
-		i++
-		i = encodeVarintProtocol(data, i, uint64(m.Filter.Size()))
-		n9, err := m.Filter.MarshalTo(data[i:])
-		if err != nil {
-			return 0, err
+	if len(m.Steps) > 0 {
+		for _, msg := range m.Steps {
+			data[i] = 0xa
+			i++
+			i = encodeVarintProtocol(data, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(data[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
 		}
-		i += n9
 	}
 	if m.Limit != 0 {
 		data[i] = 0x10
@@ -1423,11 +1538,11 @@ func (m *QueryRequest) MarshalTo(data []byte) (int, error) {
 		data[i] = 0x1a
 		i++
 		i = encodeVarintProtocol(data, i, uint64(m.Keyspace.Size()))
-		n10, err := m.Keyspace.MarshalTo(data[i:])
+		n9, err := m.Keyspace.MarshalTo(data[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n10
+		i += n9
 	}
 	if m.Type != 0 {
 		data[i] = 0x20
@@ -1439,6 +1554,53 @@ func (m *QueryRequest) MarshalTo(data []byte) (int, error) {
 		i++
 		i = encodeVarintProtocol(data, i, uint64(len(m.Query)))
 		i += copy(data[i:], m.Query)
+	}
+	return i, nil
+}
+
+func (m *ArrayOp) Marshal() (data []byte, err error) {
+	size := m.Size()
+	data = make([]byte, size)
+	n, err := m.MarshalTo(data)
+	if err != nil {
+		return nil, err
+	}
+	return data[:n], nil
+}
+
+func (m *ArrayOp) MarshalTo(data []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Triples) > 0 {
+		for _, msg := range m.Triples {
+			data[i] = 0xa
+			i++
+			i = encodeVarintProtocol(data, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(data[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
+	if len(m.Arguments) > 0 {
+		for _, msg := range m.Arguments {
+			data[i] = 0x12
+			i++
+			i = encodeVarintProtocol(data, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(data[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
+	if m.Mode != 0 {
+		data[i] = 0x18
+		i++
+		i = encodeVarintProtocol(data, i, uint64(m.Mode))
 	}
 	return i, nil
 }
@@ -1492,11 +1654,11 @@ func (m *PeerRequest) MarshalTo(data []byte) (int, error) {
 		data[i] = 0xa
 		i++
 		i = encodeVarintProtocol(data, i, uint64(m.Keyspace.Size()))
-		n11, err := m.Keyspace.MarshalTo(data[i:])
+		n10, err := m.Keyspace.MarshalTo(data[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n11
+		i += n10
 	}
 	if m.Limit != 0 {
 		data[i] = 0x10
@@ -1565,11 +1727,11 @@ func (m *Handshake) MarshalTo(data []byte) (int, error) {
 		data[i] = 0x12
 		i++
 		i = encodeVarintProtocol(data, i, uint64(m.Sender.Size()))
-		n12, err := m.Sender.MarshalTo(data[i:])
+		n11, err := m.Sender.MarshalTo(data[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n12
+		i += n11
 	}
 	return i, nil
 }
@@ -1774,9 +1936,11 @@ func (m *Keyspace) Size() (n int) {
 func (m *QueryRequest) Size() (n int) {
 	var l int
 	_ = l
-	if m.Filter != nil {
-		l = m.Filter.Size()
-		n += 1 + l + sovProtocol(uint64(l))
+	if len(m.Steps) > 0 {
+		for _, e := range m.Steps {
+			l = e.Size()
+			n += 1 + l + sovProtocol(uint64(l))
+		}
 	}
 	if m.Limit != 0 {
 		n += 1 + sovProtocol(uint64(m.Limit))
@@ -1791,6 +1955,27 @@ func (m *QueryRequest) Size() (n int) {
 	l = len(m.Query)
 	if l > 0 {
 		n += 1 + l + sovProtocol(uint64(l))
+	}
+	return n
+}
+
+func (m *ArrayOp) Size() (n int) {
+	var l int
+	_ = l
+	if len(m.Triples) > 0 {
+		for _, e := range m.Triples {
+			l = e.Size()
+			n += 1 + l + sovProtocol(uint64(l))
+		}
+	}
+	if len(m.Arguments) > 0 {
+		for _, e := range m.Arguments {
+			l = e.Size()
+			n += 1 + l + sovProtocol(uint64(l))
+		}
+	}
+	if m.Mode != 0 {
+		n += 1 + sovProtocol(uint64(m.Mode))
 	}
 	return n
 }
@@ -1988,11 +2173,23 @@ func (this *QueryRequest) String() string {
 		return "nil"
 	}
 	s := strings.Join([]string{`&QueryRequest{`,
-		`Filter:` + strings.Replace(fmt.Sprintf("%v", this.Filter), "Triple", "Triple", 1) + `,`,
+		`Steps:` + strings.Replace(fmt.Sprintf("%v", this.Steps), "ArrayOp", "ArrayOp", 1) + `,`,
 		`Limit:` + fmt.Sprintf("%v", this.Limit) + `,`,
 		`Keyspace:` + strings.Replace(fmt.Sprintf("%v", this.Keyspace), "Keyspace", "Keyspace", 1) + `,`,
 		`Type:` + fmt.Sprintf("%v", this.Type) + `,`,
 		`Query:` + fmt.Sprintf("%v", this.Query) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *ArrayOp) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&ArrayOp{`,
+		`Triples:` + strings.Replace(fmt.Sprintf("%v", this.Triples), "Triple", "Triple", 1) + `,`,
+		`Arguments:` + strings.Replace(fmt.Sprintf("%v", this.Arguments), "ArrayOp", "ArrayOp", 1) + `,`,
+		`Mode:` + fmt.Sprintf("%v", this.Mode) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -2881,7 +3078,7 @@ func (m *QueryRequest) Unmarshal(data []byte) error {
 		switch fieldNum {
 		case 1:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Filter", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field Steps", wireType)
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -2905,10 +3102,8 @@ func (m *QueryRequest) Unmarshal(data []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.Filter == nil {
-				m.Filter = &Triple{}
-			}
-			if err := m.Filter.Unmarshal(data[iNdEx:postIndex]); err != nil {
+			m.Steps = append(m.Steps, &ArrayOp{})
+			if err := m.Steps[len(m.Steps)-1].Unmarshal(data[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -3012,6 +3207,137 @@ func (m *QueryRequest) Unmarshal(data []byte) error {
 			}
 			m.Query = string(data[iNdEx:postIndex])
 			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipProtocol(data[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthProtocol
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *ArrayOp) Unmarshal(data []byte) error {
+	l := len(data)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowProtocol
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := data[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ArrayOp: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ArrayOp: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Triples", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowProtocol
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthProtocol
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Triples = append(m.Triples, &Triple{})
+			if err := m.Triples[len(m.Triples)-1].Unmarshal(data[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Arguments", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowProtocol
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthProtocol
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Arguments = append(m.Arguments, &ArrayOp{})
+			if err := m.Arguments[len(m.Arguments)-1].Unmarshal(data[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Mode", wireType)
+			}
+			m.Mode = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowProtocol
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[iNdEx]
+				iNdEx++
+				m.Mode |= (ArrayOp_Mode(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
 		default:
 			iNdEx = preIndex
 			skippy, err := skipProtocol(data[iNdEx:])

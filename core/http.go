@@ -83,8 +83,10 @@ func (s *server) handleQuery(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	query := &protocol.QueryRequest{
-		Type:   protocol.BASIC,
-		Filter: triple[0],
+		Type: protocol.BASIC,
+		Steps: []*protocol.ArrayOp{{
+			Triples: triple,
+		}},
 	}
 	triples, err := s.ExecuteQuery(query)
 	if err != nil {

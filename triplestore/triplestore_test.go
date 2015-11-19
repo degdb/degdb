@@ -120,3 +120,95 @@ func TestTripleStore(t *testing.T) {
 		t.Errorf("Size() = %#v; not %d", info, len(triples))
 	}
 }
+
+func TestArrayOpToSQL(t *testing.T) {
+	testData := []struct {
+		op   *protocol.ArrayOp
+		want []string
+	}{
+		{
+			&protocol.ArrayOp{
+				Triples: []*protocol.Triple{
+					{Subj: "subj", Pred: "pred", Obj: "obj", Lang: "lang", Author: "author"},
+					{Subj: "subj1"},
+				},
+				Mode: protocol.AND,
+			},
+			[]string{"(subj = ? AND pred = ? AND obj = ? AND lang = ? AND author = ?) AND (subj = ?)",
+				"subj", "pred", "obj", "lang", "author", "subj1"},
+		},
+		{
+			&protocol.ArrayOp{
+				Triples: []*protocol.Triple{
+					{Subj: "subj1"},
+					{Subj: "subj2"},
+				},
+				Mode: protocol.OR,
+			},
+			[]string{"(subj = ?) OR (subj = ?)", "subj1", "subj2"},
+		},
+		{
+			&protocol.ArrayOp{
+				Triples: []*protocol.Triple{
+					{Subj: "subj"},
+				},
+				Mode: protocol.NOT,
+			},
+			[]string{"NOT (subj = ?)", "subj"},
+		},
+		{
+			&protocol.ArrayOp{
+				Arguments: []*protocol.ArrayOp{{
+					Triples: []*protocol.Triple{
+						{Subj: "subj"},
+					},
+				}},
+				Mode: protocol.NOT,
+			},
+			[]string{"NOT ((subj = ?))", "subj"},
+		},
+		{
+			&protocol.ArrayOp{
+				Arguments: []*protocol.ArrayOp{
+					{
+						Triples: []*protocol.Triple{
+							{Subj: "subj1"},
+						},
+					},
+					{
+						Triples: []*protocol.Triple{
+							{Subj: "subj2"},
+						},
+					},
+				},
+				Mode: protocol.AND,
+			},
+			[]string{"((subj = ?)) AND ((subj = ?))", "subj1", "subj2"},
+		},
+		{
+			&protocol.ArrayOp{
+				Arguments: []*protocol.ArrayOp{
+					{
+						Triples: []*protocol.Triple{
+							{Subj: "subj1"},
+						},
+					},
+					{
+						Triples: []*protocol.Triple{
+							{Subj: "subj2"},
+						},
+					},
+				},
+				Mode: protocol.OR,
+			},
+			[]string{"((subj = ?)) OR ((subj = ?))", "subj1", "subj2"},
+		},
+	}
+
+	for i, td := range testData {
+		sql := ArrayOpToSQL(td.op)
+		if diff, ok := messagediff.PrettyDiff(td.want, sql); !ok {
+			t.Errorf("%d. ArrayOpToSQL(%#v) = %#v; diff %s", i, td.op, sql, diff)
+		}
+	}
+}
