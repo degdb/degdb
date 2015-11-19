@@ -67,7 +67,7 @@ func (s *server) init() error {
 	s.Printf("Initializing triplestore...")
 	s.Printf("Max DB size = %d bytes.", s.diskAllocated)
 	dbFile := fmt.Sprintf("degdb-%d.db", s.port)
-	ts, err := triplestore.NewTripleStore(dbFile)
+	ts, err := triplestore.NewTripleStore(dbFile, s.Logger)
 	if err != nil {
 		return err
 	}

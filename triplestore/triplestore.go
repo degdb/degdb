@@ -3,6 +3,7 @@
 package triplestore
 
 import (
+	"log"
 	"os"
 
 	"github.com/d4l3k/go-disk-usage/du"
@@ -19,7 +20,7 @@ type TripleStore struct {
 }
 
 // NewTripleStore returns a TripleStore with the specified file.
-func NewTripleStore(file string) (*TripleStore, error) {
+func NewTripleStore(file string, logger *log.Logger) (*TripleStore, error) {
 	ts := &TripleStore{
 		dbFile: file,
 	}
@@ -27,6 +28,7 @@ func NewTripleStore(file string) (*TripleStore, error) {
 	if ts.db, err = gorm.Open("sqlite3", file); err != nil {
 		return nil, err
 	}
+	ts.db.SetLogger(logger)
 	ts.db.CreateTable(&protocol.Triple{})
 	ts.db.Model(&protocol.Triple{}).AddIndex("idx_subj", "subj")
 	ts.db.Model(&protocol.Triple{}).AddIndex("idx_pred", "pred")

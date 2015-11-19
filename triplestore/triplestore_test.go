@@ -2,10 +2,12 @@ package triplestore
 
 import (
 	"io/ioutil"
+	"log"
 	"os"
 	"testing"
 
 	"github.com/d4l3k/messagediff"
+
 	"github.com/degdb/degdb/protocol"
 )
 
@@ -15,7 +17,7 @@ func TestTripleStore(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer os.Remove(file.Name())
-	db, err := NewTripleStore(file.Name())
+	db, err := NewTripleStore(file.Name(), log.New(os.Stdout, "", log.Flags()))
 	if err != nil {
 		t.Fatal(err)
 	}
