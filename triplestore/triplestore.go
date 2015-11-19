@@ -41,8 +41,12 @@ func NewTripleStore(file string, logger *log.Logger) (*TripleStore, error) {
 // Query does a WHERE search with the set fields on query. A limit of -1
 // returns all results.
 func (ts *TripleStore) Query(query *protocol.Triple, limit int) ([]*protocol.Triple, error) {
+	dbq := ts.db.Where(*query)
+	if limit > 0 {
+		dbq = dbq.Limit(limit)
+	}
 	var results []*protocol.Triple
-	if err := ts.db.Where(*query).Limit(limit).Find(&results).Error; err != nil {
+	if err := dbq.Find(&results).Error; err != nil {
 		return nil, err
 	}
 	return results, nil
@@ -55,8 +59,12 @@ func (ts *TripleStore) QueryArrayOp(q *protocol.ArrayOp, limit int) ([]*protocol
 	for i, arg := range query[1:] {
 		args[i] = arg
 	}
+	dbq := ts.db.Where(query[0], args...)
+	if limit > 0 {
+		dbq = dbq.Limit(limit)
+	}
 	var results []*protocol.Triple
-	if err := ts.db.Where(query[0], args...).Limit(limit).Find(&results).Error; err != nil {
+	if err := dbq.Find(&results).Error; err != nil {
 		return nil, err
 	}
 	return results, nil

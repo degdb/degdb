@@ -24,13 +24,13 @@ func (s *server) ExecuteQuery(q *protocol.QueryRequest) ([]*protocol.Triple, err
 				}
 			}
 			triples = nil
-			for hash, q := range query.ShardQueryByHash(step) {
+			for hash, arrayOp := range query.ShardQueryByHash(step) {
 				if hash == 0 {
 					// TODO(d4l3k): Unrooted queries
 					return nil, query.ErrUnRooted
 				}
 				if s.network.LocalPeer().Keyspace.Includes(hash) {
-					trips, err := s.ts.QueryArrayOp(q)
+					trips, err := s.ts.QueryArrayOp(arrayOp, int(q.Limit))
 					if err != nil {
 						return nil, err
 					}
@@ -43,7 +43,7 @@ func (s *server) ExecuteQuery(q *protocol.QueryRequest) ([]*protocol.Triple, err
 						req := &protocol.Message{Message: &protocol.Message_QueryRequest{
 							QueryRequest: &protocol.QueryRequest{
 								Type:  protocol.BASIC,
-								Steps: []*protocol.ArrayOp{q},
+								Steps: []*protocol.ArrayOp{arrayOp},
 							}}}
 						msg, err := conn.Request(req)
 						if err != nil {
