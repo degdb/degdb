@@ -5,6 +5,7 @@ package triplestore
 import (
 	"log"
 	"os"
+	"strings"
 
 	"github.com/d4l3k/go-disk-usage/du"
 	"github.com/jinzhu/gorm"
@@ -12,7 +13,6 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/degdb/degdb/protocol"
-	"github.com/degdb/degdb/query"
 )
 
 type TripleStore struct {
@@ -49,9 +49,72 @@ func (ts *TripleStore) Query(query *protocol.Triple, limit int) ([]*protocol.Tri
 }
 
 // QueryArrayOp runs an ArrayOp against the local triple store.
-func (ts *TripleStore) QueryArrayOp(q *protocol.ArrayOp) ([]*protocol.Triple, error) {
-	// TODO(d4l3k): Implement this method.
-	return nil, query.ErrArrayOp
+func (ts *TripleStore) QueryArrayOp(q *protocol.ArrayOp, limit int) ([]*protocol.Triple, error) {
+	query := ArrayOpToSQL(q)
+	args := make([]interface{}, len(query)-1)
+	for i, arg := range query[1:] {
+		args[i] = arg
+	}
+	var results []*protocol.Triple
+	if err := ts.db.Where(query[0], args...).Limit(limit).Find(&results).Error; err != nil {
+		return nil, err
+	}
+	return results, nil
+}
+
+func ArrayOpToSQL(q *protocol.ArrayOp) []string {
+	var rules []string
+	args := []string{""}
+	switch q.Mode {
+	case protocol.AND, protocol.OR:
+		for _, triple := range q.Triples {
+			sql := TripleToSQL(triple)
+			args = append(args, sql[1:]...)
+			rules = append(rules, sql[0])
+		}
+		for _, arrayOp := range q.Arguments {
+			sql := ArrayOpToSQL(arrayOp)
+			args = append(args, sql[1:]...)
+			rules = append(rules, sql[0])
+		}
+		mode := protocol.ArrayOp_Mode_name[int32(q.Mode)]
+		args[0] = "(" + strings.Join(rules, ") "+mode+" (") + ")"
+	case protocol.NOT:
+		if len(q.Triples) > 0 {
+			args = TripleToSQL(q.Triples[0])
+		} else if len(q.Arguments) > 0 {
+			args = ArrayOpToSQL(q.Arguments[0])
+		}
+		args[0] = "NOT (" + args[0] + ")"
+	}
+	return args
+}
+
+func TripleToSQL(triple *protocol.Triple) []string {
+	var rules []string
+	args := []string{""}
+	if len(triple.Subj) > 0 {
+		rules = append(rules, "subj = ?")
+		args = append(args, triple.Subj)
+	}
+	if len(triple.Pred) > 0 {
+		rules = append(rules, "pred = ?")
+		args = append(args, triple.Pred)
+	}
+	if len(triple.Obj) > 0 {
+		rules = append(rules, "obj = ?")
+		args = append(args, triple.Obj)
+	}
+	if len(triple.Lang) > 0 {
+		rules = append(rules, "lang = ?")
+		args = append(args, triple.Lang)
+	}
+	if len(triple.Author) > 0 {
+		rules = append(rules, "author = ?")
+		args = append(args, triple.Author)
+	}
+	args[0] = strings.Join(rules, " AND ")
+	return args
 }
 
 // Insert saves a bunch of triples and returns the number asserted.
