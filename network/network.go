@@ -58,7 +58,8 @@ type Server struct {
 	mux           *http.ServeMux
 	httpEndpoints []string
 
-	Peers map[string]*Conn
+	Peers     map[string]*Conn
+	peersLock sync.RWMutex
 
 	handlers map[string]protocolHandler
 	listener *httpListener

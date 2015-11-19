@@ -13,11 +13,20 @@ func (s *Server) handlePeerNotify(conn *Conn, msg *protocol.Message) {
 	conn.peerRequest <- true
 	peers := msg.GetPeerNotify().Peers
 	for _, peer := range peers {
-		if _, ok := s.Peers[peer.Id]; !ok {
-			s.Peers[peer.Id] = nil
-			if err := s.Connect(peer.Id); err != nil {
-				s.Printf("ERR failed to connect to peer %s", err)
-			}
+		s.peersLock.RLock()
+		_, ok := s.Peers[peer.Id]
+		s.peersLock.RUnlock()
+
+		if ok {
+			continue
+		}
+
+		s.peersLock.Lock()
+		s.Peers[peer.Id] = nil
+		s.peersLock.Unlock()
+
+		if err := s.Connect(peer.Id); err != nil {
+			s.Printf("ERR failed to connect to peer %s", err)
 		}
 	}
 }
@@ -27,6 +36,7 @@ func (s *Server) handlePeerRequest(conn *Conn, msg *protocol.Message) {
 	req := msg.GetPeerRequest()
 
 	var peers []*protocol.Peer
+	s.peersLock.RLock()
 	for id, v := range s.Peers {
 		if conn.Peer.Id == id || v == nil {
 			continue
@@ -36,6 +46,7 @@ func (s *Server) handlePeerRequest(conn *Conn, msg *protocol.Message) {
 			break
 		}
 	}
+	s.peersLock.RUnlock()
 	wrapper := &protocol.Message{Message: &protocol.Message_PeerNotify{
 		PeerNotify: &protocol.PeerNotify{
 			Peers: peers,
@@ -48,14 +59,23 @@ func (s *Server) handlePeerRequest(conn *Conn, msg *protocol.Message) {
 func (s *Server) handleHandshake(conn *Conn, msg *protocol.Message) {
 	handshake := msg.GetHandshake()
 	conn.Peer = handshake.GetSender()
-	if peer := s.Peers[conn.Peer.Id]; peer != nil {
+
+	s.peersLock.RLock()
+	peer := s.Peers[conn.Peer.Id]
+	s.peersLock.RUnlock()
+
+	if peer != nil {
 		s.Printf("Ignoring duplicate peer %s.", conn.PrettyID())
 		if err := conn.Close(); err != nil && err != io.EOF {
 			s.Printf("ERR closing connection %s", err)
 		}
 		return
 	}
+
+	s.peersLock.Lock()
 	s.Peers[conn.Peer.Id] = conn
+	s.peersLock.Unlock()
+
 	s.Print(color.GreenString("New peer %s", conn.PrettyID()))
 	if !handshake.Response {
 		if err := s.sendHandshake(conn, true); err != nil {
@@ -105,13 +125,16 @@ func (s *Server) sendPeerRequest(conn *Conn) error {
 			msg := color.RedString("Peer timed out! %s %+v", conn.PrettyID(), conn)
 			conn.peerRequestRetries++
 			if conn.peerRequestRetries >= 3 {
-				s.Printf(msg)
+				s.peersLock.Lock()
 				delete(s.Peers, conn.Peer.Id)
+				s.peersLock.Unlock()
+
 				conn.Close()
 			} else {
-				s.Printf("%s. Retrying...", msg)
+				msg += "Retrying..."
 				s.sendPeerRequest(conn)
 			}
+			s.Printf(msg)
 		}
 	}()
 	if err := conn.Send(msg); err != nil {
