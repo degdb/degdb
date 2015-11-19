@@ -25,17 +25,21 @@ func Parse(query string) ([]*protocol.Triple, error) {
 func ShardQueryByHash(step *protocol.ArrayOp) map[uint64]*protocol.ArrayOp {
 	m := make(map[uint64]*protocol.ArrayOp)
 	// TODO(d4l3k): better query hash splitting
-	if step.Mode == protocol.OR && len(step.Triples) > 0 {
+	var bad bool
+	if len(step.Triples) > 0 {
 		for _, triple := range step.Triples {
 			if len(triple.Subj) == 0 {
-				// TODO(d4l3k): Handle people sneaking in unrooted queries.
-				continue
+				bad = true
+				break
 			}
 			hash := murmur3.Sum64([]byte(triple.Subj))
 			m[hash] = step
 		}
 	} else {
-		m[0] = step
+		bad = true
+	}
+	if bad {
+		return map[uint64]*protocol.ArrayOp{0: step}
 	}
 	return m
 }
