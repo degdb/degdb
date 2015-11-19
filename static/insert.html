@@ -6,7 +6,7 @@
 </style>
 <div class="container">
   <h1>degdb Triple Insertion</h1>
-  <p class="flow-text">This inserts triples into the graph. This should only be used for testing. A private key is required to sign the triples.</p>
+  <p class="flow-text">This inserts triples into the graph. This should only be used for testing. A private key will be required to sign the triples.</p>
   <h4>Author Details</h4>
   <div class="row">
     <div class="input-field col s12">
@@ -14,7 +14,6 @@
       <label for="privatekey">Private Key (TODO)</label>
     </div>
   </div>
-  <h4>Insert Multiple Triples</h4>
   <table id="multiple">
     <thead>
       <tr>
@@ -29,29 +28,6 @@
     <div class="indeterminate"></div>
   </div>
   <p id="insertResp" class="flow-text"></p>
-  <br>
-
-  <h4>Insert Single Triple</h4>
-  <form action="/api/v1/insert" method="post">
-    <table>
-      <tr>
-        <td>Subject
-        <td><input name="subj" value="degdb:testid">
-      </tr>
-      <tr>
-        <td>Predicate
-        <td><input name="pred" value="https://www.googleapis.com/freebase/v1/rdf/type/object/name">
-      </tr>
-      <tr>
-        <td>Object
-        <td><input name="obj" value="Barack Obama">
-      </tr>
-      <tr>
-        <td></td>
-        <td><button class="waves-effect waves-light btn">Insert</button>
-      </tr>
-    </table>
-  </form>
 </div>
 <script>
 'use strict';
