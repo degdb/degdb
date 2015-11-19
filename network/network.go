@@ -198,6 +198,15 @@ func (s *Server) handleConnection(conn *Conn) error {
 			break
 		}
 		s.Printf("Message: <- %s, %+v", conn.PrettyID(), req.GetMessage())
+		if req.ResponseTo != 0 {
+			if c, ok := conn.expectedMessages[req.ResponseTo]; ok {
+				c <- req
+				continue
+			} else {
+				err = fmt.Errorf("response sent to invalid request %d", req.ResponseTo)
+				break
+			}
+		}
 		rawType := reflect.TypeOf(req.GetMessage()).Elem().Name()
 		typ := strings.TrimPrefix(rawType, "Message_")
 		handler, ok := s.handlers[typ]

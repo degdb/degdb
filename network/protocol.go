@@ -2,7 +2,6 @@ package network
 
 import (
 	"io"
-	"log"
 	"time"
 
 	"github.com/fatih/color"
@@ -42,7 +41,7 @@ func (s *Server) handlePeerRequest(conn *Conn, msg *protocol.Message) {
 			Peers: peers,
 		}}}
 	if err := conn.Send(wrapper); err != nil {
-		log.Printf("ERR sending PeerNotify: %s", err)
+		s.Printf("ERR sending PeerNotify: %s", err)
 	}
 }
 
