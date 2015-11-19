@@ -54,7 +54,7 @@ message Keyspace {
   limit - max number of results to return.
 */
 message QueryRequest {
-  Triple filter = 1;
+  repeated ArrayOp steps = 1;
   int32 limit = 2;
   Keyspace keyspace = 3;
   enum Type {
@@ -65,6 +65,17 @@ message QueryRequest {
   }
   Type type = 4;
   string query = 5;
+}
+
+message ArrayOp {
+  repeated Triple triples = 1;
+  repeated ArrayOp arguments = 2;
+  enum Mode {
+    OR = 0;
+    AND = 1;
+    NOT = 2; // NOT requires a single triple or argument.
+  }
+  Mode mode = 3;
 }
 
 message QueryResponse {

@@ -12,6 +12,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/degdb/degdb/protocol"
+	"github.com/degdb/degdb/query"
 )
 
 type TripleStore struct {
@@ -45,6 +46,12 @@ func (ts *TripleStore) Query(query *protocol.Triple, limit int) ([]*protocol.Tri
 		return nil, err
 	}
 	return results, nil
+}
+
+// QueryArrayOp runs an ArrayOp against the local triple store.
+func (ts *TripleStore) QueryArrayOp(q *protocol.ArrayOp) ([]*protocol.Triple, error) {
+	// TODO(d4l3k): Implement this method.
+	return nil, query.ErrArrayOp
 }
 
 // Insert saves a bunch of triples and returns the number asserted.

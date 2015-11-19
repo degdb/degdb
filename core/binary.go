@@ -44,12 +44,11 @@ func (s *server) handleQueryRequest(conn *network.Conn, msg *protocol.Message) {
 				Triples: triples,
 			},
 		},
-		ResponseTo: msg.Hash(),
 	}
 	if err != nil {
 		resp.Error = err.Error()
 	}
-	if err := conn.Send(resp); err != nil {
+	if err := conn.RespondTo(msg, resp); err != nil {
 		s.Printf("ERR send QueryResponse %s", err)
 	}
 }
