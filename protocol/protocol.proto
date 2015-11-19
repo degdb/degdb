@@ -33,6 +33,9 @@ message Triple {
   string lang = 4;
   string author = 5;
   string sig = 6;
+
+  // created is a UNIX timestamp in seconds.
+  int64 created = 7;
 }
 
 message Peer {

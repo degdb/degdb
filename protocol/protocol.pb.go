@@ -300,12 +300,13 @@ func _Message_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer
 }
 
 type Triple struct {
-	Subj   string `protobuf:"bytes,1,opt,name=subj,proto3" json:"subj,omitempty"`
-	Pred   string `protobuf:"bytes,2,opt,name=pred,proto3" json:"pred,omitempty"`
-	Obj    string `protobuf:"bytes,3,opt,name=obj,proto3" json:"obj,omitempty"`
-	Lang   string `protobuf:"bytes,4,opt,name=lang,proto3" json:"lang,omitempty"`
-	Author string `protobuf:"bytes,5,opt,name=author,proto3" json:"author,omitempty"`
-	Sig    string `protobuf:"bytes,6,opt,name=sig,proto3" json:"sig,omitempty"`
+	Subj    string `protobuf:"bytes,1,opt,name=subj,proto3" json:"subj,omitempty"`
+	Pred    string `protobuf:"bytes,2,opt,name=pred,proto3" json:"pred,omitempty"`
+	Obj     string `protobuf:"bytes,3,opt,name=obj,proto3" json:"obj,omitempty"`
+	Lang    string `protobuf:"bytes,4,opt,name=lang,proto3" json:"lang,omitempty"`
+	Author  string `protobuf:"bytes,5,opt,name=author,proto3" json:"author,omitempty"`
+	Sig     string `protobuf:"bytes,6,opt,name=sig,proto3" json:"sig,omitempty"`
+	Created int64  `protobuf:"varint,7,opt,name=created,proto3" json:"created,omitempty"`
 }
 
 func (m *Triple) Reset()      { *m = Triple{} }
@@ -721,6 +722,9 @@ func (this *Triple) Equal(that interface{}) bool {
 	if this.Sig != that1.Sig {
 		return false
 	}
+	if this.Created != that1.Created {
+		return false
+	}
 	return true
 }
 func (this *Peer) Equal(that interface{}) bool {
@@ -1078,7 +1082,7 @@ func (this *Triple) GoString() string {
 	if this == nil {
 		return "nil"
 	}
-	s := make([]string, 0, 10)
+	s := make([]string, 0, 11)
 	s = append(s, "&protocol.Triple{")
 	s = append(s, "Subj: "+fmt.Sprintf("%#v", this.Subj)+",\n")
 	s = append(s, "Pred: "+fmt.Sprintf("%#v", this.Pred)+",\n")
@@ -1086,6 +1090,7 @@ func (this *Triple) GoString() string {
 	s = append(s, "Lang: "+fmt.Sprintf("%#v", this.Lang)+",\n")
 	s = append(s, "Author: "+fmt.Sprintf("%#v", this.Author)+",\n")
 	s = append(s, "Sig: "+fmt.Sprintf("%#v", this.Sig)+",\n")
+	s = append(s, "Created: "+fmt.Sprintf("%#v", this.Created)+",\n")
 	s = append(s, "}")
 	return strings.Join(s, "")
 }
@@ -1436,6 +1441,11 @@ func (m *Triple) MarshalTo(data []byte) (int, error) {
 		i++
 		i = encodeVarintProtocol(data, i, uint64(len(m.Sig)))
 		i += copy(data[i:], m.Sig)
+	}
+	if m.Created != 0 {
+		data[i] = 0x38
+		i++
+		i = encodeVarintProtocol(data, i, uint64(m.Created))
 	}
 	return i, nil
 }
@@ -1904,6 +1914,9 @@ func (m *Triple) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovProtocol(uint64(l))
 	}
+	if m.Created != 0 {
+		n += 1 + sovProtocol(uint64(m.Created))
+	}
 	return n
 }
 
@@ -2142,6 +2155,7 @@ func (this *Triple) String() string {
 		`Lang:` + fmt.Sprintf("%v", this.Lang) + `,`,
 		`Author:` + fmt.Sprintf("%v", this.Author) + `,`,
 		`Sig:` + fmt.Sprintf("%v", this.Sig) + `,`,
+		`Created:` + fmt.Sprintf("%v", this.Created) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -2826,6 +2840,25 @@ func (m *Triple) Unmarshal(data []byte) error {
 			}
 			m.Sig = string(data[iNdEx:postIndex])
 			iNdEx = postIndex
+		case 7:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Created", wireType)
+			}
+			m.Created = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowProtocol
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[iNdEx]
+				iNdEx++
+				m.Created |= (int64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
 		default:
 			iNdEx = preIndex
 			skippy, err := skipProtocol(data[iNdEx:])

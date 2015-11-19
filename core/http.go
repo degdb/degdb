@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"time"
 
 	"github.com/GeertJohan/go.rice"
 	"github.com/degdb/degdb/protocol"
@@ -40,12 +41,14 @@ func (s *server) handleInsertTriple(w http.ResponseWriter, r *http.Request) {
 	}
 
 	hashes := make(map[uint64][]*protocol.Triple)
+	unix := time.Now().Unix()
 	for _, triple := range triples {
 		// TODO(d4l3k): This should ideally be refactored and force the client to presign the triple.
 		if err := s.crypto.SignTriple(triple); err != nil {
 			http.Error(w, err.Error(), 500)
 			return
 		}
+		triple.Created = unix
 		hash := murmur3.Sum64([]byte(triple.Subj))
 		hashes[hash] = append(hashes[hash], triple)
 	}
@@ -116,7 +119,7 @@ func (s *server) handlePeers(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(peers)
 }
 
-// handleInfo is a debug method to dump the current known peers.
+// handleInfo return information about the local node.
 func (s *server) handleInfo(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(s.network.LocalPeer())
 }
