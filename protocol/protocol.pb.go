@@ -75,10 +75,14 @@ type Message struct {
 	Gossip bool `protobuf:"varint,7,opt,name=gossip,proto3" json:"gossip,omitempty"`
 	// sent_to is a list of murmur3 hashes that this message has already been sent to.
 	SentTo []uint64 `protobuf:"varint,9,rep,name=sent_to" json:"sent_to,omitempty"`
-	// error is if there was an error returned by the request
+	// error is if there was an error returned by the request.
 	Error string `protobuf:"bytes,10,opt,name=error,proto3" json:"error,omitempty"`
-	// response_to is the message this is a response to
+	// response_to is the message this is a response to.
 	ResponseTo uint64 `protobuf:"varint,11,opt,name=response_to,proto3" json:"response_to,omitempty"`
+	// id is the id of the message.
+	Id uint64 `protobuf:"varint,12,opt,name=id,proto3" json:"id,omitempty"`
+	// response_required is whether a response is required.
+	ResponseRequired bool `protobuf:"varint,13,opt,name=response_required,proto3" json:"response_required,omitempty"`
 }
 
 func (m *Message) Reset()      { *m = Message{} }
@@ -468,6 +472,12 @@ func (this *Message) Equal(that interface{}) bool {
 		return false
 	}
 	if this.ResponseTo != that1.ResponseTo {
+		return false
+	}
+	if this.Id != that1.Id {
+		return false
+	}
+	if this.ResponseRequired != that1.ResponseRequired {
 		return false
 	}
 	return true
@@ -905,7 +915,7 @@ func (this *Message) GoString() string {
 	if this == nil {
 		return "nil"
 	}
-	s := make([]string, 0, 14)
+	s := make([]string, 0, 16)
 	s = append(s, "&protocol.Message{")
 	if this.Message != nil {
 		s = append(s, "Message: "+fmt.Sprintf("%#v", this.Message)+",\n")
@@ -914,6 +924,8 @@ func (this *Message) GoString() string {
 	s = append(s, "SentTo: "+fmt.Sprintf("%#v", this.SentTo)+",\n")
 	s = append(s, "Error: "+fmt.Sprintf("%#v", this.Error)+",\n")
 	s = append(s, "ResponseTo: "+fmt.Sprintf("%#v", this.ResponseTo)+",\n")
+	s = append(s, "Id: "+fmt.Sprintf("%#v", this.Id)+",\n")
+	s = append(s, "ResponseRequired: "+fmt.Sprintf("%#v", this.ResponseRequired)+",\n")
 	s = append(s, "}")
 	return strings.Join(s, "")
 }
@@ -1158,6 +1170,21 @@ func (m *Message) MarshalTo(data []byte) (int, error) {
 		data[i] = 0x58
 		i++
 		i = encodeVarintProtocol(data, i, uint64(m.ResponseTo))
+	}
+	if m.Id != 0 {
+		data[i] = 0x60
+		i++
+		i = encodeVarintProtocol(data, i, uint64(m.Id))
+	}
+	if m.ResponseRequired {
+		data[i] = 0x68
+		i++
+		if m.ResponseRequired {
+			data[i] = 1
+		} else {
+			data[i] = 0
+		}
+		i++
 	}
 	return i, nil
 }
@@ -1625,6 +1652,12 @@ func (m *Message) Size() (n int) {
 	if m.ResponseTo != 0 {
 		n += 1 + sovProtocol(uint64(m.ResponseTo))
 	}
+	if m.Id != 0 {
+		n += 1 + sovProtocol(uint64(m.Id))
+	}
+	if m.ResponseRequired {
+		n += 2
+	}
 	return n
 }
 
@@ -1847,6 +1880,8 @@ func (this *Message) String() string {
 		`SentTo:` + fmt.Sprintf("%v", this.SentTo) + `,`,
 		`Error:` + fmt.Sprintf("%v", this.Error) + `,`,
 		`ResponseTo:` + fmt.Sprintf("%v", this.ResponseTo) + `,`,
+		`Id:` + fmt.Sprintf("%v", this.Id) + `,`,
+		`ResponseRequired:` + fmt.Sprintf("%v", this.ResponseRequired) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -2331,6 +2366,45 @@ func (m *Message) Unmarshal(data []byte) error {
 					break
 				}
 			}
+		case 12:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Id", wireType)
+			}
+			m.Id = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowProtocol
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[iNdEx]
+				iNdEx++
+				m.Id |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 13:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ResponseRequired", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowProtocol
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[iNdEx]
+				iNdEx++
+				v |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.ResponseRequired = bool(v != 0)
 		default:
 			iNdEx = preIndex
 			skippy, err := skipProtocol(data[iNdEx:])
