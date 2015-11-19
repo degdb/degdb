@@ -49,5 +49,7 @@ func (s *server) handleQueryRequest(conn *network.Conn, msg *protocol.Message) {
 	if err != nil {
 		resp.Error = err.Error()
 	}
-	conn.Send(resp)
+	if err := conn.Send(resp); err != nil {
+		s.Printf("ERR send QueryResponse %s", err)
+	}
 }
