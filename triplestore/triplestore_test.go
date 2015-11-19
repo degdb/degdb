@@ -4,6 +4,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"strconv"
 	"testing"
 
 	"github.com/d4l3k/messagediff"
@@ -210,5 +211,27 @@ func TestArrayOpToSQL(t *testing.T) {
 		if diff, ok := messagediff.PrettyDiff(td.want, sql); !ok {
 			t.Errorf("%d. ArrayOpToSQL(%#v) = %#v; diff %s", i, td.op, sql, diff)
 		}
+	}
+}
+
+func BenchmarkTripleInsert(b *testing.B) {
+
+	file, err := ioutil.TempFile(os.TempDir(), "triplestore.db")
+	if err != nil {
+		b.Fatal(err)
+	}
+	defer os.Remove(file.Name())
+	db, err := NewTripleStore(file.Name(), log.New(os.Stdout, "", log.Flags()))
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		triple := &protocol.Triple{
+			Subj: "foo" + strconv.Itoa(i),
+			Pred: "some subject! woooooo",
+			Obj:  "toasters are delicious",
+		}
+		db.Insert([]*protocol.Triple{triple})
 	}
 }
