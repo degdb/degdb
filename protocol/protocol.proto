@@ -16,10 +16,14 @@ message Message {
   bool gossip = 7;
   // sent_to is a list of murmur3 hashes that this message has already been sent to.
   repeated uint64 sent_to = 9;
-  // error is if there was an error returned by the request
+  // error is if there was an error returned by the request.
   string error = 10;
-  // response_to is the message this is a response to
+  // response_to is the message this is a response to.
   uint64 response_to = 11;
+  // id is the id of the message.
+  uint64 id = 12;
+  // response_required is whether a response is required.
+  bool response_required = 13;
 }
 
 message Triple {

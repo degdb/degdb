@@ -73,10 +73,15 @@ func (s *Server) handleHandshake(conn *Conn, msg *protocol.Message) {
 func (s *Server) connHeartbeat(conn *Conn) {
 	ticker := time.NewTicker(time.Second * 60)
 	for _ = range ticker.C {
+		if conn.Closed {
+			ticker.Stop()
+			break
+		}
 		conn.peerRequestRetries = 0
 		err := s.sendPeerRequest(conn)
 		if err == io.EOF {
 			ticker.Stop()
+			break
 		} else if err != nil {
 			s.Printf("ERR sendPeerRequest %s", err)
 		}

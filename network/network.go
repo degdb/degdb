@@ -113,7 +113,8 @@ func (s *Server) Connect(addr string) error {
 		return err
 	}
 
-	return s.handleConnection(conn)
+	go s.handleConnection(conn)
+	return nil
 }
 
 // Listen for incoming connections on the specified port.

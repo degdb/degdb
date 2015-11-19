@@ -6,7 +6,7 @@
 </style>
 <div class="container">
   <h1>degdb Triple Insertion</h1>
-  <p class="flow-text">This inserts a single triple into the graph. This should only be used for testing. A private key is required to sign the triples.</p>
+  <p class="flow-text">This inserts triples into the graph. This should only be used for testing. A private key is required to sign the triples.</p>
   <h4>Author Details</h4>
   <div class="row">
     <div class="input-field col s12">
@@ -25,6 +25,10 @@
   </table>
   <button id="addRow" class="waves-effect waves-light btn blue">Add Row</button>
   <button id="insertMultiple" class="waves-effect waves-light btn">Insert</button>
+  <div id="insertStatus" class="progress" style="display: none">
+    <div class="indeterminate"></div>
+  </div>
+  <p id="insertResp" class="flow-text"></p>
   <br>
 
   <h4>Insert Single Triple</h4>
@@ -78,6 +82,24 @@ function addTripleRow() {
 addTripleRow();
 $('#addRow').click(addTripleRow);
 $('#insertMultiple').click(function() {
+  var triples = [];
+  $('#multiple tbody tr').each(function(i, row) {
+    let $inputs = $(this).find('input');
+    triples.push({
+      subj: $inputs.eq(0).val(),
+      pred: $inputs.eq(1).val(),
+      obj: $inputs.eq(2).val(),
+      lang: $inputs.eq(3).val()
+    });
+  });
 
+  var handleResp = function(data) {
+    console.log(data);
+    $("#insertResp").text(data);
+    $('#insertStatus').slideUp();
+  };
+
+  $.post('/api/v1/insert', JSON.stringify(triples), handleResp).fail(handleResp);
+  $('#insertStatus').slideDown();
 });
 </script>

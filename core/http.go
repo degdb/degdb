@@ -2,8 +2,8 @@ package core
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 
 	"github.com/GeertJohan/go.rice"
@@ -25,7 +25,7 @@ func (s *server) initHTTP() error {
 	return nil
 }
 
-// handleInsertTriple inserts a triple into the graph.
+// handleInsertTriple inserts set of triples into the graph.
 func (s *server) handleInsertTriple(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		http.Error(w, "endpoint needs POST", 400)
@@ -65,7 +65,7 @@ func (s *server) handleInsertTriple(w http.ResponseWriter, r *http.Request) {
 			s.ts.Insert(triples)
 		}
 	}
-	http.Redirect(w, r, "/static/insert.html", 307)
+	w.Write([]byte(fmt.Sprintf("Inserted %d triples.", len(triples))))
 }
 
 // handleQuery executes a query against the graph.
@@ -76,7 +76,7 @@ func (s *server) handleQuery(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	q := r.FormValue("q")
-	log.Printf("Query: %s", q)
+	s.Printf("Query: %s", q)
 	triple, err := query.Parse(q)
 	if err != nil {
 		http.Error(w, err.Error(), 400)

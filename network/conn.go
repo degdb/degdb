@@ -19,7 +19,8 @@ func (s *Server) NewConn(c net.Conn) *Conn {
 
 // Conn is a net.Conn with extensions.
 type Conn struct {
-	Peer *protocol.Peer
+	Peer   *protocol.Peer
+	Closed bool
 
 	// Notify channel for heartbeats
 	peerRequest        chan bool
@@ -53,4 +54,9 @@ func (c *Conn) PrettyID() string {
 		remote = c.RemoteAddr().String()
 	}
 	return color.CyanString(remote)
+}
+
+func (c *Conn) Close() error {
+	c.Closed = true
+	return c.Conn.Close()
 }
