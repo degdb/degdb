@@ -17,8 +17,9 @@ var Timeout = errors.New("request timed-out")
 // NewConn creates a new Conn with the specified net.Conn.
 func (s *Server) NewConn(c net.Conn) *Conn {
 	return &Conn{
-		Conn:   c,
-		server: s,
+		Conn:             c,
+		server:           s,
+		expectedMessages: make(map[uint64]chan *protocol.Message),
 	}
 }
 
