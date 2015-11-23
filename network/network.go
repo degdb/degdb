@@ -238,3 +238,47 @@ func (s *Server) LocalPeer() *protocol.Peer {
 		Keyspace: keyspace,
 	}
 }
+
+// MinimumCoveringPeers returns a set of peers that minimizes overlap. This is similar to the Set Covering Problem and is NP-hard.
+// This is a greedy algorithm. While the keyspace is not entirely covered, scan through all peers and pick the peer that will add the most to the set while still having the start in the selected set.
+// TODO(wiz): Make this more optimal.
+// TODO(wiz): achieve n-redundancy
+func (s *Server) MinimumCoveringPeers() []*Conn {
+	usedPeers := make(map[string]bool)
+	var peers []*Conn
+	var keyspace *protocol.Keyspace
+	for i := 0; i < len(s.Peers) && !keyspace.Maxed(); i++ {
+		var bestPeer *Conn
+		var increase uint64
+		// By definition, ranging through peer map will go in random order.
+	Peers:
+		for id, conn := range s.Peers {
+			peer := conn.Peer
+			if peer == nil || usedPeers[id] {
+				continue
+			}
+			if i == 0 {
+				peers = append(peers, conn)
+				keyspace = peer.Keyspace
+				break Peers
+			}
+			incr := keySpaceIncrease(keyspace, peer.Keyspace)
+			if incr > increase {
+				increase = incr
+				bestPeer = conn
+			}
+		}
+		if bestPeer != nil {
+			peers = append(peers, bestPeer)
+			keyspace = keyspace.Union(bestPeer.Peer.Keyspace)
+			usedPeers[bestPeer.Peer.Id] = true
+			// break?
+		}
+	}
+	return peers
+}
+
+// keySpaceIncrease calculates the increase in keyspace if b was to be unioned.
+func keySpaceIncrease(a, b *protocol.Keyspace) uint64 {
+	return a.Union(b).Mag() - a.Mag()
+}

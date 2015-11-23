@@ -3,10 +3,15 @@ package network
 import (
 	"fmt"
 	"log"
+	"math"
 	"os"
+	"sort"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/degdb/degdb/protocol"
 )
 
 func TestPeerDiscovery(t *testing.T) {
@@ -57,5 +62,68 @@ func TestPeerDiscovery(t *testing.T) {
 			}
 		}
 	}
+}
 
+func TestMinimumCoveringPeers(t *testing.T) {
+	testData := []struct {
+		keyspaces []*protocol.Keyspace
+		cover     bool
+	}{
+		{
+			nil,
+			false,
+		},
+		{
+			[]*protocol.Keyspace{
+				{1, 20},
+				{20, 1},
+			},
+			true,
+		},
+		{
+			[]*protocol.Keyspace{
+				{1, 20},
+				{20, 30},
+				{30, 50},
+				{50, 1},
+			},
+			true,
+		},
+	}
+	for i, td := range testData {
+		s := &Server{Peers: make(map[string]*Conn)}
+		for j, keyspace := range td.keyspaces {
+			id := strconv.Itoa(j)
+			s.Peers[id] = &Conn{
+				Peer: &protocol.Peer{
+					Keyspace: keyspace,
+					Id:       id,
+				}}
+		}
+		min := s.MinimumCoveringPeers()
+		sort.Sort(sortConnByKeyspace(min))
+		union := &protocol.Keyspace{}
+
+		// Twice to make sure there aren't any order issues with 1 space gaps.
+		for i := 0; i < 2; i++ {
+			for _, peer := range min {
+				union = union.Union(peer.Peer.Keyspace)
+			}
+		}
+		if union.Maxed() != td.cover {
+			t.Errorf("%d. s.MinimumCoveringPeers().Union().Maxed() != %+v, %+v, %+v", i, td.cover, math.MaxUint64-union.Mag(), min)
+		}
+	}
+}
+
+type sortConnByKeyspace []*Conn
+
+func (s sortConnByKeyspace) Len() int {
+	return len(s)
+}
+func (s sortConnByKeyspace) Less(i, j int) bool {
+	return s[i].Peer.Keyspace.Start < s[j].Peer.Keyspace.Start
+}
+func (s sortConnByKeyspace) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
 }

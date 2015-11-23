@@ -300,13 +300,14 @@ func _Message_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer
 }
 
 type Triple struct {
-	Subj    string `protobuf:"bytes,1,opt,name=subj,proto3" json:"subj,omitempty"`
-	Pred    string `protobuf:"bytes,2,opt,name=pred,proto3" json:"pred,omitempty"`
-	Obj     string `protobuf:"bytes,3,opt,name=obj,proto3" json:"obj,omitempty"`
-	Lang    string `protobuf:"bytes,4,opt,name=lang,proto3" json:"lang,omitempty"`
-	Author  string `protobuf:"bytes,5,opt,name=author,proto3" json:"author,omitempty"`
-	Sig     string `protobuf:"bytes,6,opt,name=sig,proto3" json:"sig,omitempty"`
-	Created int64  `protobuf:"varint,7,opt,name=created,proto3" json:"created,omitempty"`
+	Subj   string `protobuf:"bytes,1,opt,name=subj,proto3" json:"subj,omitempty"`
+	Pred   string `protobuf:"bytes,2,opt,name=pred,proto3" json:"pred,omitempty"`
+	Obj    string `protobuf:"bytes,3,opt,name=obj,proto3" json:"obj,omitempty"`
+	Lang   string `protobuf:"bytes,4,opt,name=lang,proto3" json:"lang,omitempty"`
+	Author string `protobuf:"bytes,5,opt,name=author,proto3" json:"author,omitempty"`
+	Sig    string `protobuf:"bytes,6,opt,name=sig,proto3" json:"sig,omitempty"`
+	// created is a UNIX timestamp in seconds.
+	Created int64 `protobuf:"varint,7,opt,name=created,proto3" json:"created,omitempty"`
 }
 
 func (m *Triple) Reset()      { *m = Triple{} }

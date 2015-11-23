@@ -24,7 +24,16 @@ func (s *server) ExecuteQuery(q *protocol.QueryRequest) ([]*protocol.Triple, err
 				}
 			}
 			triples = nil
-			for hash, arrayOp := range query.ShardQueryByHash(step) {
+			shards := query.ShardQueryByHash(step)
+
+			// Unrooted queries
+			if arrayOp, ok := shards[0]; ok {
+				set := s.network.MinimumCoveringPeers()
+				s.Printf("Minimum covering set %+v", set)
+				_ = arrayOp
+				return nil, query.ErrUnRooted
+			}
+			for hash, arrayOp := range shards {
 				if hash == 0 {
 					// TODO(d4l3k): Unrooted queries
 					return nil, query.ErrUnRooted
