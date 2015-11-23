@@ -348,6 +348,8 @@ type QueryRequest struct {
 	Keyspace *Keyspace         `protobuf:"bytes,3,opt,name=keyspace" json:"keyspace,omitempty"`
 	Type     QueryRequest_Type `protobuf:"varint,4,opt,name=type,proto3,enum=QueryRequest_Type" json:"type,omitempty"`
 	Query    string            `protobuf:"bytes,5,opt,name=query,proto3" json:"query,omitempty"`
+	// sharded is whether the query has already been sharded.
+	Sharded bool `protobuf:"varint,6,opt,name=sharded,proto3" json:"sharded,omitempty"`
 }
 
 func (m *QueryRequest) Reset()      { *m = QueryRequest{} }
@@ -824,6 +826,9 @@ func (this *QueryRequest) Equal(that interface{}) bool {
 	if this.Query != that1.Query {
 		return false
 	}
+	if this.Sharded != that1.Sharded {
+		return false
+	}
 	return true
 }
 func (this *ArrayOp) Equal(that interface{}) bool {
@@ -1123,7 +1128,7 @@ func (this *QueryRequest) GoString() string {
 	if this == nil {
 		return "nil"
 	}
-	s := make([]string, 0, 9)
+	s := make([]string, 0, 10)
 	s = append(s, "&protocol.QueryRequest{")
 	if this.Steps != nil {
 		s = append(s, "Steps: "+fmt.Sprintf("%#v", this.Steps)+",\n")
@@ -1134,6 +1139,7 @@ func (this *QueryRequest) GoString() string {
 	}
 	s = append(s, "Type: "+fmt.Sprintf("%#v", this.Type)+",\n")
 	s = append(s, "Query: "+fmt.Sprintf("%#v", this.Query)+",\n")
+	s = append(s, "Sharded: "+fmt.Sprintf("%#v", this.Sharded)+",\n")
 	s = append(s, "}")
 	return strings.Join(s, "")
 }
@@ -1566,6 +1572,16 @@ func (m *QueryRequest) MarshalTo(data []byte) (int, error) {
 		i = encodeVarintProtocol(data, i, uint64(len(m.Query)))
 		i += copy(data[i:], m.Query)
 	}
+	if m.Sharded {
+		data[i] = 0x30
+		i++
+		if m.Sharded {
+			data[i] = 1
+		} else {
+			data[i] = 0
+		}
+		i++
+	}
 	return i, nil
 }
 
@@ -1970,6 +1986,9 @@ func (m *QueryRequest) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovProtocol(uint64(l))
 	}
+	if m.Sharded {
+		n += 2
+	}
 	return n
 }
 
@@ -2193,6 +2212,7 @@ func (this *QueryRequest) String() string {
 		`Keyspace:` + strings.Replace(fmt.Sprintf("%v", this.Keyspace), "Keyspace", "Keyspace", 1) + `,`,
 		`Type:` + fmt.Sprintf("%v", this.Type) + `,`,
 		`Query:` + fmt.Sprintf("%v", this.Query) + `,`,
+		`Sharded:` + fmt.Sprintf("%v", this.Sharded) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -3241,6 +3261,26 @@ func (m *QueryRequest) Unmarshal(data []byte) error {
 			}
 			m.Query = string(data[iNdEx:postIndex])
 			iNdEx = postIndex
+		case 6:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Sharded", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowProtocol
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[iNdEx]
+				iNdEx++
+				v |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.Sharded = bool(v != 0)
 		default:
 			iNdEx = preIndex
 			skippy, err := skipProtocol(data[iNdEx:])

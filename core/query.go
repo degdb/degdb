@@ -1,6 +1,8 @@
 package core
 
 import (
+	"sync"
+
 	"github.com/degdb/degdb/protocol"
 	"github.com/degdb/degdb/query"
 )
@@ -23,19 +25,47 @@ func (s *server) ExecuteQuery(q *protocol.QueryRequest) ([]*protocol.Triple, err
 					Triples:   midTriples,
 				}
 			}
+
+			// External request and is already sharded.
+			if q.Sharded {
+				return s.ts.QueryArrayOp(step, int(q.Limit))
+			}
+
+			var wg sync.WaitGroup
+			var triplesLock sync.RWMutex
 			triples = nil
 			shards := query.ShardQueryByHash(step)
 
 			// Unrooted queries
 			if arrayOp, ok := shards[0]; ok {
+				// TODO localnode
 				set := s.network.MinimumCoveringPeers()
 				s.Printf("Minimum covering set %+v", set)
 				_ = arrayOp
-				return nil, query.ErrUnRooted
+				wg.Add(len(set))
+				req := basicReq(arrayOp)
+				var err error
+				for _, conn := range set {
+					conn := conn
+					go func() {
+						var msg *protocol.Message
+						msg, err = conn.Request(req)
+						if err != nil {
+							return
+						}
+						triplesLock.Lock()
+						triples = append(triples, msg.GetQueryResponse().Triples...)
+						triplesLock.Unlock()
+						wg.Done()
+					}()
+				}
+				wg.Wait()
+				return triples, err
 			}
+
+			// Rooted queries
 			for hash, arrayOp := range shards {
 				if hash == 0 {
-					// TODO(d4l3k): Unrooted queries
 					return nil, query.ErrUnRooted
 				}
 				if s.network.LocalPeer().Keyspace.Includes(hash) {
@@ -48,12 +78,12 @@ func (s *server) ExecuteQuery(q *protocol.QueryRequest) ([]*protocol.Triple, err
 				}
 			Peers:
 				for _, conn := range s.network.Peers {
+					if conn == nil || conn.Peer == nil {
+						continue
+					}
 					if conn.Peer.Keyspace.Includes(hash) {
-						req := &protocol.Message{Message: &protocol.Message_QueryRequest{
-							QueryRequest: &protocol.QueryRequest{
-								Type:  protocol.BASIC,
-								Steps: []*protocol.ArrayOp{arrayOp},
-							}}}
+						req := basicReq(arrayOp)
+						// TODO(d4l3k) Parallelize
 						msg, err := conn.Request(req)
 						if err != nil {
 							return nil, err
@@ -71,4 +101,13 @@ func (s *server) ExecuteQuery(q *protocol.QueryRequest) ([]*protocol.Triple, err
 		return nil, query.ErrNotImplemented
 	}
 	return triples, nil
+}
+
+func basicReq(arrayOp *protocol.ArrayOp) *protocol.Message {
+	return &protocol.Message{Message: &protocol.Message_QueryRequest{
+		QueryRequest: &protocol.QueryRequest{
+			Type:    protocol.BASIC,
+			Steps:   []*protocol.ArrayOp{arrayOp},
+			Sharded: true,
+		}}}
 }

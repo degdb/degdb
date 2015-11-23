@@ -68,6 +68,8 @@ message QueryRequest {
   }
   Type type = 4;
   string query = 5;
+  // sharded is whether the query has already been sharded.
+  bool sharded = 6;
 }
 
 message ArrayOp {

@@ -253,10 +253,10 @@ func (s *Server) MinimumCoveringPeers() []*Conn {
 		// By definition, ranging through peer map will go in random order.
 	Peers:
 		for id, conn := range s.Peers {
-			peer := conn.Peer
-			if peer == nil || usedPeers[id] {
+			if conn == nil || conn.Peer == nil || usedPeers[id] {
 				continue
 			}
+			peer := conn.Peer
 			if i == 0 {
 				peers = append(peers, conn)
 				keyspace = peer.Keyspace
