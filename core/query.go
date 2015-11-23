@@ -2,6 +2,7 @@ package core
 
 import (
 	"sync"
+	"time"
 
 	"github.com/degdb/degdb/protocol"
 	"github.com/degdb/degdb/query"
@@ -54,9 +55,19 @@ func (s *server) ExecuteQuery(q *protocol.QueryRequest) ([]*protocol.Triple, err
 							return
 						}
 						triplesLock.Lock()
+						// TODO(d4l3k): Deduplicate triples
 						triples = append(triples, msg.GetQueryResponse().Triples...)
 						triplesLock.Unlock()
-						wg.Done()
+						done := make(chan bool, 1)
+						go func() {
+							wg.Done()
+							done <- true
+						}()
+						go func() {
+							time.Sleep(10 * time.Second)
+							done <- true
+						}()
+						<-done
 					}()
 				}
 				wg.Wait()
