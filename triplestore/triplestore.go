@@ -128,11 +128,15 @@ func TripleToSQL(triple *protocol.Triple) []string {
 // Insert saves a bunch of triples and returns the number asserted.
 func (ts *TripleStore) Insert(triples []*protocol.Triple) int {
 	count := 0
+	tx := ts.db.Begin()
 	for _, triple := range triples {
-		if err := ts.db.Create(triple).Error; err != nil {
+		if err := tx.Create(triple).Error; err != nil {
 			continue
 		}
 		count++
+	}
+	if err := tx.Commit().Error; err != nil {
+		return 0
 	}
 	return count
 }

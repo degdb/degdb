@@ -215,7 +215,6 @@ func TestArrayOpToSQL(t *testing.T) {
 }
 
 func BenchmarkTripleInsert(b *testing.B) {
-
 	file, err := ioutil.TempFile(os.TempDir(), "triplestore.db")
 	if err != nil {
 		b.Fatal(err)
@@ -233,5 +232,28 @@ func BenchmarkTripleInsert(b *testing.B) {
 			Obj:  "toasters are delicious",
 		}
 		db.Insert([]*protocol.Triple{triple})
+	}
+}
+func BenchmarkTripleInsertBatch1000(b *testing.B) {
+	file, err := ioutil.TempFile(os.TempDir(), "triplestore.db")
+	if err != nil {
+		b.Fatal(err)
+	}
+	defer os.Remove(file.Name())
+	db, err := NewTripleStore(file.Name(), log.New(os.Stdout, "", log.Flags()))
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		triples := make([]*protocol.Triple, 1000)
+		for j := 0; j < 1000; j++ {
+			triples[j] = &protocol.Triple{
+				Subj: "foo" + strconv.Itoa(i*1000+j),
+				Pred: "some subject! woooooo",
+				Obj:  "toasters are delicious",
+			}
+		}
+		db.Insert(triples)
 	}
 }
