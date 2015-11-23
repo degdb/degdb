@@ -13,10 +13,10 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/ccding/go-stun/stun"
 	"github.com/dustin/go-humanize"
 	"github.com/spaolacci/murmur3"
 
+	"github.com/degdb/degdb/network/ip"
 	"github.com/degdb/degdb/protocol"
 )
 
@@ -25,7 +25,6 @@ type protocolHandler func(conn *Conn, msg *protocol.Message)
 var (
 	stunOnce sync.Once
 	stunWG   sync.WaitGroup
-	nat      stun.NATType
 	host     string
 )
 
@@ -36,13 +35,11 @@ func init() {
 func stunResults() {
 	stunOnce.Do(func() {
 		// TODO(d4l3k): Fetch IP by talking to other nodes.
-		stunc := stun.NewClient()
-		natType, stunHost, err := stunc.Discover()
+		ip, err := ip.IP()
 		if err != nil {
 			log.Fatal(err)
 		}
-		nat = natType
-		host = stunHost.IP()
+		host = ip
 		stunWG.Done()
 	})
 	stunWG.Wait()
@@ -52,7 +49,6 @@ func stunResults() {
 type Server struct {
 	IP   string
 	Port int
-	NAT  stun.NATType
 
 	HTTP          *http.Server
 	mux           *http.ServeMux
@@ -78,7 +74,6 @@ func NewServer(log *log.Logger, port int) (*Server, error) {
 	stunResults()
 
 	s.IP = host
-	s.NAT = nat
 
 	tcpAddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", s.IP, s.Port))
 	if err != nil {

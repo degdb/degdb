@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"time"
 
@@ -23,6 +24,7 @@ func (s *server) initHTTP() error {
 	s.network.HTTPHandleFunc("/api/v1/query", s.handleQuery)
 	s.network.HTTPHandleFunc("/api/v1/triples", s.handleTriples)
 	s.network.HTTPHandleFunc("/api/v1/peers", s.handlePeers)
+	s.network.HTTPHandleFunc("/api/v1/myip", s.handleMyIP)
 
 	return nil
 }
@@ -122,4 +124,13 @@ func (s *server) handlePeers(w http.ResponseWriter, r *http.Request) {
 // handleInfo return information about the local node.
 func (s *server) handleInfo(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(s.network.LocalPeer())
+}
+
+// handleMyIP returns the requesters IP address.
+func (s *server) handleMyIP(w http.ResponseWriter, r *http.Request) {
+	addr, err := net.ResolveTCPAddr("tcp", r.RemoteAddr)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+	}
+	w.Write([]byte(addr.IP.String()))
 }
