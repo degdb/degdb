@@ -22,6 +22,9 @@ func Parse(query string) ([]*protocol.Triple, error) {
 }
 
 func ShardQueryByHash(step *protocol.ArrayOp) map[uint64]*protocol.ArrayOp {
+	if step == nil {
+		return nil
+	}
 	m := make(map[uint64]*protocol.ArrayOp)
 	// TODO(d4l3k): better query hash splitting
 	var bad bool

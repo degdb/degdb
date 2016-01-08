@@ -32,3 +32,57 @@ func TestParse(t *testing.T) {
 		}
 	}
 }
+
+func TestShardQueryByHash(t *testing.T) {
+	testData := []struct {
+		step *protocol.ArrayOp
+		want map[uint64]*protocol.ArrayOp
+	}{
+		{
+			nil,
+			nil,
+		},
+		{
+			&protocol.ArrayOp{
+				Triples: []*protocol.Triple{
+					{Subj: "foo"},
+					{Subj: "bar"},
+				},
+			},
+			map[uint64]*protocol.ArrayOp{
+				0xe271865701f54561: {
+					Triples: []*protocol.Triple{
+						{Subj: "foo"},
+						{Subj: "bar"},
+					},
+				},
+				0x923658dbfd3ae604: {
+					Triples: []*protocol.Triple{
+						{Subj: "foo"},
+						{Subj: "bar"},
+					},
+				},
+			},
+		},
+		{
+			&protocol.ArrayOp{
+				Triples: []*protocol.Triple{
+					{Pred: "bar"},
+				},
+			},
+			map[uint64]*protocol.ArrayOp{
+				0: {
+					Triples: []*protocol.Triple{
+						{Pred: "bar"},
+					},
+				},
+			},
+		},
+	}
+	for i, td := range testData {
+		out := ShardQueryByHash(td.step)
+		if diff, eq := messagediff.PrettyDiff(td.want, out); !eq {
+			t.Errorf("%d. Parse(%#v) = %#v\ndiff %s", i, td.step, out, diff)
+		}
+	}
+}
