@@ -26,16 +26,14 @@ func TestNewClient(t *testing.T) {
 	launchWG.Add(1)
 	cl, err := NewClient()
 	if err != nil {
-		Kill()
-		t.Fatal(err)
+		t.Error(err)
 	}
 	cl2, err := NewClient()
 	if err != nil {
-		Kill()
-		t.Fatal(err)
+		t.Error(err)
+	}
+	if cl != cl2 {
+		t.Errorf("NewClient() not returning same client each time %#v %#v", cl, cl2)
 	}
 	Kill()
-	if cl != cl2 {
-		t.Fatalf("NewClient() not returning same client each time %#v %#v", cl, cl2)
-	}
 }
