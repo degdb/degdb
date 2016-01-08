@@ -1,4 +1,4 @@
-# degdb [![Build Status](https://travis-ci.org/degdb/degdb.svg?branch=master)](https://travis-ci.org/degdb/degdb) [![GoDoc](https://godoc.org/github.com/degdb/degdb?status.svg)](https://godoc.org/github.com/degdb/degdb)
+# degdb [![Build Status](https://travis-ci.org/degdb/degdb.svg?branch=master)](https://travis-ci.org/degdb/degdb) [![Coverage Status](https://coveralls.io/repos/degdb/degdb/badge.svg?branch=master&service=github)](https://coveralls.io/github/degdb/degdb?branch=master) [![GoDoc](https://godoc.org/github.com/degdb/degdb?status.svg)](https://godoc.org/github.com/degdb/degdb)
 
 Distributed Economic Graph Database
 
