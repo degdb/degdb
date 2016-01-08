@@ -3,8 +3,8 @@ package network
 import (
 	"io/ioutil"
 	"net/http"
-	"sync"
 	"testing"
+	"time"
 )
 
 func TestHTTPProxy(t *testing.T) {
@@ -12,15 +12,12 @@ func TestHTTPProxy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var wg sync.WaitGroup
-	wg.Add(1)
 	go func() {
-		go wg.Done()
 		if err := s.Listen(); err != nil {
 			t.Fatal(err)
 		}
 	}()
-	wg.Wait()
+	time.Sleep(100 * time.Millisecond)
 
 	// Test endpoint
 	expectedResp := "foo"
