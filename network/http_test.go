@@ -4,6 +4,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"testing"
+	"time"
 )
 
 func TestHTTPProxy(t *testing.T) {
@@ -16,6 +17,7 @@ func TestHTTPProxy(t *testing.T) {
 			t.Fatal(err)
 		}
 	}()
+	time.Sleep(10 * time.Millisecond)
 
 	// Test endpoint
 	expectedResp := "foo"

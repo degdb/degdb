@@ -16,8 +16,9 @@ import (
 )
 
 func TestPeerDiscovery(t *testing.T) {
-	stunOnce.Do(func() {})
-	stunWG.Done()
+	stunOnce.Do(func() {
+		stunWG.Done()
+	})
 	host = "localhost"
 
 	nodeCount := 5
