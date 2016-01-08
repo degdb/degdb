@@ -32,6 +32,7 @@ func launchProc(name string, args ...string) {
 	if err := cmd.Start(); err != nil {
 		log.Fatal(err)
 	}
+	procChannel <- cmd
 	if err := cmd.Wait(); err != nil {
 		log.Fatal(err)
 	}
@@ -40,13 +41,41 @@ func launchProc(name string, args ...string) {
 var launchOnce sync.Once
 var launchWG sync.WaitGroup
 var client *btcrpcclient.Client
+var procChannel chan *exec.Cmd
+var procKillChannel chan bool
+
+var procs []*exec.Cmd
+
+func procHandler() {
+	procChannel = make(chan *exec.Cmd, 1)
+	procKillChannel = make(chan bool, 1)
+	for {
+		select {
+		case proc := <-procChannel:
+			procs = append(procs, proc)
+		case <-procKillChannel:
+			for _, proc := range procs {
+				proc.Process.Kill()
+			}
+			procs = nil
+		}
+	}
+}
+
+// Kill kills all processes launched by bitcoin.
+func Kill() {
+	procKillChannel <- true
+}
 
 func init() {
 	launchWG.Add(1)
+	go procHandler()
 }
 
-func NewClient() *btcrpcclient.Client {
+func NewClient() (*btcrpcclient.Client, error) {
+	var cerr error
 	launchOnce.Do(func() {
+		defer launchWG.Done()
 		password := randString(40)
 		go launchProc("btcd", "--testnet", "-u", RPCUser, "-P", password)
 		go launchProc("btcwallet", "-u", RPCUser, "-P", password)
@@ -59,21 +88,19 @@ func NewClient() *btcrpcclient.Client {
 			log.Fatal(err)
 		}
 		connCfg := &btcrpcclient.ConnConfig{
-			Host:         "localhost:8334",
+			Host:         "localhost:18334",
 			Endpoint:     "ws",
 			User:         RPCUser,
 			Pass:         password,
 			Certificates: certs,
 		}
 		_ = connCfg
-		//time.Sleep(1 * time.Second)
-		/*client, err = btcrpcclient.New(connCfg, nil) // handlers)
-		if err != nil {
-			log.Fatal(err)
+		time.Sleep(2 * time.Second)
+		client, cerr = btcrpcclient.New(connCfg, nil) // handlers)
+		if cerr != nil {
+			return
 		}
-		*/
-		defer launchWG.Done()
 	})
 	launchWG.Wait()
-	return client
+	return client, cerr
 }
