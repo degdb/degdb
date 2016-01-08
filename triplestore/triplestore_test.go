@@ -12,6 +12,53 @@ import (
 	"github.com/degdb/degdb/protocol"
 )
 
+var testTriples = []*protocol.Triple{
+	{
+		Subj: "/m/02mjmr",
+		Pred: "/type/object/name",
+		Obj:  "Barack Obama",
+	},
+	{
+		Subj: "/m/02mjmr",
+		Pred: "/type/object/type",
+		Obj:  "/people/person",
+	},
+	{
+		Subj: "/m/0hume",
+		Pred: "/type/object/name",
+		Obj:  "Hume",
+	},
+	{
+		Subj: "/m/0hume",
+		Pred: "/type/object/type",
+		Obj:  "/organization/team",
+	},
+}
+
+func TestTripleDuplicates(t *testing.T) {
+	file, err := ioutil.TempFile(os.TempDir(), "triplestore.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(file.Name())
+	db, err := NewTripleStore(file.Name(), log.New(os.Stdout, "", log.Flags()))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	db.Insert(testTriples)
+	// Insert twice to ensure no duplicates.
+	db.Insert(testTriples)
+
+	info, err := db.Size()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Triples != uint64(len(testTriples)) {
+		t.Errorf("Size() = %#v; not %d", info, len(testTriples))
+	}
+}
+
 func TestTripleStore(t *testing.T) {
 	file, err := ioutil.TempFile(os.TempDir(), "triplestore.db")
 	if err != nil {
@@ -23,32 +70,7 @@ func TestTripleStore(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	triples := []*protocol.Triple{
-		{
-			Subj: "/m/02mjmr",
-			Pred: "/type/object/name",
-			Obj:  "Barack Obama",
-		},
-		{
-			Subj: "/m/02mjmr",
-			Pred: "/type/object/type",
-			Obj:  "/people/person",
-		},
-		{
-			Subj: "/m/0hume",
-			Pred: "/type/object/name",
-			Obj:  "Hume",
-		},
-		{
-			Subj: "/m/0hume",
-			Pred: "/type/object/type",
-			Obj:  "/organization/team",
-		},
-	}
-
-	db.Insert(triples)
-	// Insert twice to ensure no duplicates.
-	db.Insert(triples)
+	db.Insert(testTriples)
 
 	testData := []struct {
 		query *protocol.Triple
@@ -104,21 +126,13 @@ func TestTripleStore(t *testing.T) {
 	}
 
 	for i, td := range testData {
-		triples, err := db.Query(td.query, -1)
+		triples, err := db.Query(td.query, 100)
 		if err != nil {
 			t.Error(err)
 		}
 		if diff, ok := messagediff.PrettyDiff(td.want, triples); !ok {
 			t.Errorf("%d. Query(%#v, -1) = %#v; diff %s", i, td.query, triples, diff)
 		}
-	}
-
-	info, err := db.Size()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if info.Triples != uint64(len(triples)) {
-		t.Errorf("Size() = %#v; not %d", info, len(triples))
 	}
 }
 
@@ -255,5 +269,103 @@ func BenchmarkTripleInsertBatch1000(b *testing.B) {
 			}
 		}
 		db.Insert(triples)
+	}
+}
+
+func TestTripleStoreQueryArrayOp(t *testing.T) {
+	file, err := ioutil.TempFile(os.TempDir(), "triplestore.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(file.Name())
+	db, err := NewTripleStore(file.Name(), log.New(os.Stdout, "", log.Flags()))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	db.Insert(testTriples)
+
+	testData := []struct {
+		query *protocol.ArrayOp
+		want  []*protocol.Triple
+	}{
+		{
+			&protocol.ArrayOp{
+				Triples: []*protocol.Triple{{
+					Subj: "/m/02mjmr",
+				}},
+			},
+			[]*protocol.Triple{
+				{
+					Subj: "/m/02mjmr",
+					Pred: "/type/object/name",
+					Obj:  "Barack Obama",
+				},
+				{
+					Subj: "/m/02mjmr",
+					Pred: "/type/object/type",
+					Obj:  "/people/person",
+				},
+			},
+		},
+		{
+			&protocol.ArrayOp{
+				Triples: []*protocol.Triple{
+					{
+						Subj: "/m/02mjmr",
+					},
+					{
+						Subj: "/m/0hume",
+					},
+				},
+			},
+			testTriples,
+		},
+		{
+			&protocol.ArrayOp{
+				Mode: protocol.AND,
+				Triples: []*protocol.Triple{
+					{
+						Subj: "/m/02mjmr",
+					},
+					{
+						Subj: "/m/0hume",
+					},
+				},
+			},
+			nil,
+		},
+		{
+			&protocol.ArrayOp{
+				Mode: protocol.NOT,
+				Triples: []*protocol.Triple{
+					{
+						Subj: "/m/0hume",
+					},
+				},
+			},
+			[]*protocol.Triple{
+				{
+					Subj: "/m/02mjmr",
+					Pred: "/type/object/name",
+					Obj:  "Barack Obama",
+				},
+				{
+					Subj: "/m/02mjmr",
+					Pred: "/type/object/type",
+					Obj:  "/people/person",
+				},
+			},
+		},
+	}
+
+	for i, td := range testData {
+		triples, err := db.QueryArrayOp(td.query, 100)
+		if err != nil {
+			t.Error(err)
+		}
+		if diff, ok := messagediff.PrettyDiff(td.want, triples); !ok {
+			t.Errorf("%d. Query(%#v, -1) = %#v; diff %s", i, td.query, triples, diff)
+		}
 	}
 }
