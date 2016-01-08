@@ -8,8 +8,17 @@ Initial implementation done at PennApps 2015 Fall. It can be located in the `old
 
 ## Running
 ```bash
-go run main.go -new -peers="example.com:8181,foo.io:8182"
+# Install degdb and bitcoin dependencies
+$ go get -v -u github.com/degdb/degdb github.com/btcsuite/btcwallet github.com/btcsuite/btcd
+
+# Create the bitcoin wallet
+$ btcwallet --create
+
+# Launch new server and connect to provided peers.
+$ go run main.go -new -peers="example.com:8181,foo.io:8182"
 ```
+
+`$GOPATH/bin` must be on the path so degdb can launch instances of btcwallet and btcd.
 
 ## Development
 For development purposes you can launch multiple nodes within a single binary. This can only be used in development and disables connecting to external peers.

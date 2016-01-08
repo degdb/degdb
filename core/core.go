@@ -9,9 +9,15 @@ import (
 
 	"github.com/fatih/color"
 
+	"github.com/degdb/degdb/bitcoin"
 	"github.com/degdb/degdb/crypto"
 	"github.com/degdb/degdb/network"
 	"github.com/degdb/degdb/triplestore"
+)
+
+const (
+	KeyFilePath      = "degdb-%d.key"
+	DatabaseFilePath = "degdb-%d.db"
 )
 
 type server struct {
@@ -38,6 +44,8 @@ func Main(port int, peers []string, diskAllocated int) {
 		s.Fatal(err)
 	}
 
+	bitcoin.NewClient()
+
 	go s.connectPeers(peers)
 	s.Fatal(s.network.Listen())
 }
@@ -57,7 +65,7 @@ func (s *server) connectPeers(peers []string) {
 
 func (s *server) init() error {
 	s.Printf("Initializing crypto...")
-	keyFile := fmt.Sprintf("degdb-%d.key", s.port)
+	keyFile := fmt.Sprintf(KeyFilePath, s.port)
 	privKey, err := crypto.ReadOrGenerateKey(keyFile)
 	if err != nil {
 		return err
@@ -66,7 +74,7 @@ func (s *server) init() error {
 
 	s.Printf("Initializing triplestore...")
 	s.Printf("Max DB size = %d bytes.", s.diskAllocated)
-	dbFile := fmt.Sprintf("degdb-%d.db", s.port)
+	dbFile := fmt.Sprintf(DatabaseFilePath, s.port)
 	ts, err := triplestore.NewTripleStore(dbFile, s.Logger)
 	if err != nil {
 		return err
