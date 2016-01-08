@@ -30,11 +30,11 @@ func launchProc(name string, args ...string) {
 	cmd.Stderr = os.Stderr
 	defer cmd.Process.Kill()
 	if err := cmd.Start(); err != nil {
-		log.Fatal(err)
+		log.Println(err)
 	}
 	procChannel <- cmd
 	if err := cmd.Wait(); err != nil {
-		log.Fatal(err)
+		log.Println(err)
 	}
 }
 
