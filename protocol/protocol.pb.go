@@ -82,6 +82,25 @@ var ArrayOp_Mode_value = map[string]int32{
 	"NOT": 2,
 }
 
+type Handshake_Type int32
+
+const (
+	HANDSHAKE_INITIAL  Handshake_Type = 0
+	HANDSHAKE_RESPONSE Handshake_Type = 1
+	HANDSHAKE_UPDATE   Handshake_Type = 2
+)
+
+var Handshake_Type_name = map[int32]string{
+	0: "HANDSHAKE_INITIAL",
+	1: "HANDSHAKE_RESPONSE",
+	2: "HANDSHAKE_UPDATE",
+}
+var Handshake_Type_value = map[string]int32{
+	"HANDSHAKE_INITIAL":  0,
+	"HANDSHAKE_RESPONSE": 1,
+	"HANDSHAKE_UPDATE":   2,
+}
+
 type Message struct {
 	// Types that are valid to be assigned to Message:
 	//	*Message_PeerRequest
@@ -314,7 +333,11 @@ func (m *Triple) Reset()      { *m = Triple{} }
 func (*Triple) ProtoMessage() {}
 
 type Peer struct {
-	Id       string    `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// id is the address that can be used to connect to the peer.
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// serving is whether the peer will respond to requests for triples.
+	Serving bool `protobuf:"varint,3,opt,name=serving,proto3" json:"serving,omitempty"`
+	// keyspace is the keyspcae that the peer knows about.
 	Keyspace *Keyspace `protobuf:"bytes,2,opt,name=keyspace" json:"keyspace,omitempty"`
 }
 
@@ -437,8 +460,8 @@ func (m *PeerNotify) GetPeers() []*Peer {
 }
 
 type Handshake struct {
-	Response bool  `protobuf:"varint,1,opt,name=response,proto3" json:"response,omitempty"`
-	Sender   *Peer `protobuf:"bytes,2,opt,name=sender" json:"sender,omitempty"`
+	Sender *Peer          `protobuf:"bytes,1,opt,name=sender" json:"sender,omitempty"`
+	Type   Handshake_Type `protobuf:"varint,2,opt,name=type,proto3,enum=Handshake_Type" json:"type,omitempty"`
 }
 
 func (m *Handshake) Reset()      { *m = Handshake{} }
@@ -468,6 +491,7 @@ func (m *InsertTriples) GetTriples() []*Triple {
 func init() {
 	proto.RegisterEnum("QueryRequest_Type", QueryRequest_Type_name, QueryRequest_Type_value)
 	proto.RegisterEnum("ArrayOp_Mode", ArrayOp_Mode_name, ArrayOp_Mode_value)
+	proto.RegisterEnum("Handshake_Type", Handshake_Type_name, Handshake_Type_value)
 }
 func (x QueryRequest_Type) String() string {
 	s, ok := QueryRequest_Type_name[int32(x)]
@@ -478,6 +502,13 @@ func (x QueryRequest_Type) String() string {
 }
 func (x ArrayOp_Mode) String() string {
 	s, ok := ArrayOp_Mode_name[int32(x)]
+	if ok {
+		return s
+	}
+	return strconv.Itoa(int(x))
+}
+func (x Handshake_Type) String() string {
+	s, ok := Handshake_Type_name[int32(x)]
 	if ok {
 		return s
 	}
@@ -753,6 +784,9 @@ func (this *Peer) Equal(that interface{}) bool {
 	if this.Id != that1.Id {
 		return false
 	}
+	if this.Serving != that1.Serving {
+		return false
+	}
 	if !this.Keyspace.Equal(that1.Keyspace) {
 		return false
 	}
@@ -980,10 +1014,10 @@ func (this *Handshake) Equal(that interface{}) bool {
 	} else if this == nil {
 		return false
 	}
-	if this.Response != that1.Response {
+	if !this.Sender.Equal(that1.Sender) {
 		return false
 	}
-	if !this.Sender.Equal(that1.Sender) {
+	if this.Type != that1.Type {
 		return false
 	}
 	return true
@@ -1104,9 +1138,10 @@ func (this *Peer) GoString() string {
 	if this == nil {
 		return "nil"
 	}
-	s := make([]string, 0, 6)
+	s := make([]string, 0, 7)
 	s = append(s, "&protocol.Peer{")
 	s = append(s, "Id: "+fmt.Sprintf("%#v", this.Id)+",\n")
+	s = append(s, "Serving: "+fmt.Sprintf("%#v", this.Serving)+",\n")
 	if this.Keyspace != nil {
 		s = append(s, "Keyspace: "+fmt.Sprintf("%#v", this.Keyspace)+",\n")
 	}
@@ -1202,10 +1237,10 @@ func (this *Handshake) GoString() string {
 	}
 	s := make([]string, 0, 6)
 	s = append(s, "&protocol.Handshake{")
-	s = append(s, "Response: "+fmt.Sprintf("%#v", this.Response)+",\n")
 	if this.Sender != nil {
 		s = append(s, "Sender: "+fmt.Sprintf("%#v", this.Sender)+",\n")
 	}
+	s = append(s, "Type: "+fmt.Sprintf("%#v", this.Type)+",\n")
 	s = append(s, "}")
 	return strings.Join(s, "")
 }
@@ -1488,6 +1523,16 @@ func (m *Peer) MarshalTo(data []byte) (int, error) {
 		}
 		i += n8
 	}
+	if m.Serving {
+		data[i] = 0x18
+		i++
+		if m.Serving {
+			data[i] = 1
+		} else {
+			data[i] = 0
+		}
+		i++
+	}
 	return i, nil
 }
 
@@ -1740,18 +1785,8 @@ func (m *Handshake) MarshalTo(data []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
-	if m.Response {
-		data[i] = 0x8
-		i++
-		if m.Response {
-			data[i] = 1
-		} else {
-			data[i] = 0
-		}
-		i++
-	}
 	if m.Sender != nil {
-		data[i] = 0x12
+		data[i] = 0xa
 		i++
 		i = encodeVarintProtocol(data, i, uint64(m.Sender.Size()))
 		n11, err := m.Sender.MarshalTo(data[i:])
@@ -1759,6 +1794,11 @@ func (m *Handshake) MarshalTo(data []byte) (int, error) {
 			return 0, err
 		}
 		i += n11
+	}
+	if m.Type != 0 {
+		data[i] = 0x10
+		i++
+		i = encodeVarintProtocol(data, i, uint64(m.Type))
 	}
 	return i, nil
 }
@@ -1948,6 +1988,9 @@ func (m *Peer) Size() (n int) {
 		l = m.Keyspace.Size()
 		n += 1 + l + sovProtocol(uint64(l))
 	}
+	if m.Serving {
+		n += 2
+	}
 	return n
 }
 
@@ -2053,12 +2096,12 @@ func (m *PeerNotify) Size() (n int) {
 func (m *Handshake) Size() (n int) {
 	var l int
 	_ = l
-	if m.Response {
-		n += 2
-	}
 	if m.Sender != nil {
 		l = m.Sender.Size()
 		n += 1 + l + sovProtocol(uint64(l))
+	}
+	if m.Type != 0 {
+		n += 1 + sovProtocol(uint64(m.Type))
 	}
 	return n
 }
@@ -2187,6 +2230,7 @@ func (this *Peer) String() string {
 	s := strings.Join([]string{`&Peer{`,
 		`Id:` + fmt.Sprintf("%v", this.Id) + `,`,
 		`Keyspace:` + strings.Replace(fmt.Sprintf("%v", this.Keyspace), "Keyspace", "Keyspace", 1) + `,`,
+		`Serving:` + fmt.Sprintf("%v", this.Serving) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -2265,8 +2309,8 @@ func (this *Handshake) String() string {
 		return "nil"
 	}
 	s := strings.Join([]string{`&Handshake{`,
-		`Response:` + fmt.Sprintf("%v", this.Response) + `,`,
 		`Sender:` + strings.Replace(fmt.Sprintf("%v", this.Sender), "Peer", "Peer", 1) + `,`,
+		`Type:` + fmt.Sprintf("%v", this.Type) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -2992,6 +3036,26 @@ func (m *Peer) Unmarshal(data []byte) error {
 				return err
 			}
 			iNdEx = postIndex
+		case 3:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Serving", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowProtocol
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[iNdEx]
+				iNdEx++
+				v |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.Serving = bool(v != 0)
 		default:
 			iNdEx = preIndex
 			skippy, err := skipProtocol(data[iNdEx:])
@@ -3727,26 +3791,6 @@ func (m *Handshake) Unmarshal(data []byte) error {
 		}
 		switch fieldNum {
 		case 1:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Response", wireType)
-			}
-			var v int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowProtocol
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := data[iNdEx]
-				iNdEx++
-				v |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			m.Response = bool(v != 0)
-		case 2:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Sender", wireType)
 			}
@@ -3779,6 +3823,25 @@ func (m *Handshake) Unmarshal(data []byte) error {
 				return err
 			}
 			iNdEx = postIndex
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Type", wireType)
+			}
+			m.Type = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowProtocol
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[iNdEx]
+				iNdEx++
+				m.Type |= (Handshake_Type(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
 		default:
 			iNdEx = preIndex
 			skippy, err := skipProtocol(data[iNdEx:])

@@ -8,6 +8,7 @@ import (
 	"math"
 	"net"
 	"net/http"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -50,6 +51,8 @@ type Server struct {
 	IP   string
 	Port int
 
+	Serving bool
+
 	HTTP          *http.Server
 	mux           *http.ServeMux
 	httpEndpoints []string
@@ -62,10 +65,13 @@ type Server struct {
 	*log.Logger
 }
 
-// NewServer creates a new server with routing information.
-func NewServer(log *log.Logger, port int) (*Server, error) {
+// NewServer creates a new server with routing information. If log is nil, stdout is used.
+func NewServer(logger *log.Logger, port int) (*Server, error) {
+	if logger == nil {
+		logger = log.New(os.Stdout, "", log.Flags())
+	}
 	s := &Server{
-		Logger:   log,
+		Logger:   logger,
 		Port:     port,
 		Peers:    make(map[string]*Conn),
 		handlers: make(map[string]protocolHandler),
@@ -75,12 +81,7 @@ func NewServer(log *log.Logger, port int) (*Server, error) {
 
 	s.IP = host
 
-	tcpAddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", s.IP, s.Port))
-	if err != nil {
-		return nil, err
-	}
 	s.listener = &httpListener{
-		addr:   tcpAddr,
 		accept: make(chan *httpConn, 10),
 	}
 
@@ -105,7 +106,7 @@ func (s *Server) Connect(addr string) error {
 
 	conn := s.NewConn(tcpConn)
 
-	if err := s.sendHandshake(conn, false); err != nil {
+	if err := s.sendHandshake(conn, protocol.HANDSHAKE_INITIAL); err != nil {
 		return err
 	}
 
@@ -119,7 +120,12 @@ func (s *Server) Listen() error {
 	if err != nil {
 		return err
 	}
-	go s.listenHTTP()
+	addr := ln.Addr().(*net.TCPAddr)
+	if s.Port == 0 {
+		s.Port = addr.Port
+	}
+
+	go s.listenHTTP(addr)
 	s.Printf("Listening: 0.0.0.0:%d, ip: %s", s.Port, s.IP)
 	for {
 		conn, err := ln.Accept()
@@ -222,7 +228,7 @@ func (s *Server) handleConnection(conn *Conn) error {
 
 // LocalPeer returns a peer object of the current server.
 func (s *Server) LocalPeer() *protocol.Peer {
-	id := fmt.Sprintf("%s:%d", s.IP, s.Port)
+	id := s.LocalID()
 	center := murmur3.Sum64([]byte(id))
 	keyspace := &protocol.Keyspace{
 		Start: center - math.MaxUint64/4,
@@ -230,8 +236,14 @@ func (s *Server) LocalPeer() *protocol.Peer {
 	}
 	return &protocol.Peer{
 		Id:       id,
+		Serving:  s.Serving,
 		Keyspace: keyspace,
 	}
+}
+
+// LocalID returns the local machines ID.
+func (s *Server) LocalID() string {
+	return net.JoinHostPort(s.IP, strconv.Itoa(s.Port))
 }
 
 // MinimumCoveringPeers returns a set of peers that minimizes overlap. This is similar to the Set Covering Problem and is NP-hard.

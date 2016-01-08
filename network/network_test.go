@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/d4l3k/messagediff"
 	"github.com/degdb/degdb/protocol"
 )
 
@@ -126,4 +127,41 @@ func (s sortConnByKeyspace) Less(i, j int) bool {
 }
 func (s sortConnByKeyspace) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
+}
+
+func TestLocalPeer(t *testing.T) {
+	testData := []struct {
+		ip      string
+		port    int
+		serving bool
+		want    *protocol.Peer
+	}{
+		{
+			"127.0.0.1", 7946, false,
+			&protocol.Peer{
+				Id:       "127.0.0.1:7946",
+				Serving:  false,
+				Keyspace: &protocol.Keyspace{Start: 0x5677ecc49097f350, End: 0xd677ecc49097f34e},
+			},
+		},
+		{
+			"127.0.0.2", 7947, true,
+			&protocol.Peer{
+				Id:       "127.0.0.2:7947",
+				Serving:  true,
+				Keyspace: &protocol.Keyspace{Start: 0xfa367fcf18de76bd, End: 0x7a367fcf18de76bb},
+			},
+		},
+	}
+	for i, td := range testData {
+		s := Server{
+			IP:      td.ip,
+			Port:    td.port,
+			Serving: td.serving,
+		}
+		out := s.LocalPeer()
+		if diff, ok := messagediff.PrettyDiff(td.want, out); !ok {
+			t.Errorf("%d. %#v.LocalPeer() = %#v; diff %s", i, s, out, diff)
+		}
+	}
 }

@@ -39,8 +39,13 @@ message Triple {
 }
 
 message Peer {
+  // id is the address that can be used to connect to the peer.
   string id = 1;
 
+  // serving is whether the peer will respond to requests for triples.
+  bool serving = 3;
+
+  // keyspace is the keyspcae that the peer knows about.
   Keyspace keyspace = 2;
 }
 
@@ -98,8 +103,14 @@ message PeerNotify {
 }
 
 message Handshake {
-  bool response = 1;
-  Peer sender = 2;
+  Peer sender = 1;
+
+  enum Type {
+    HANDSHAKE_INITIAL = 0;
+    HANDSHAKE_RESPONSE = 1;
+    HANDSHAKE_UPDATE = 2;
+  }
+  Type type = 2;
 }
 
 message InsertTriples {

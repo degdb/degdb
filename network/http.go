@@ -1,10 +1,21 @@
 package network
 
 import (
-	"fmt"
+	"html/template"
 	"net"
 	"net/http"
+	"sort"
 	"time"
+
+	"github.com/GeertJohan/go.rice"
+	"github.com/degdb/degdb/network/http"
+)
+
+var staticBox = rice.MustFindBox("../static/")
+
+var (
+	IndexTemplate = template.Must(template.New("").Parse(staticBox.MustString("common/index.html")))
+	ErrorTemplate = template.Must(template.New("").Parse(staticBox.MustString("common/error.html")))
 )
 
 func (s *Server) initHTTPRouting() {
@@ -15,29 +26,36 @@ func (s *Server) initHTTPRouting() {
 
 // handleNotFound renders a 404 page for missing pages.
 func (s *Server) handleNotFound(w http.ResponseWriter, r *http.Request) {
-	if r.URL.String() == "/" {
-		html := "<pre>"
-		for _, e := range s.httpEndpoints {
-			html += "<a href='" + e + "'>" + e + "</a>\n"
+	url := r.URL.String()
+	w.Header().Add("Content-Type", "text/html")
+	if url == "/" {
+		var urls []string
+		for _, path := range s.httpEndpoints {
+			urls = append(urls, path)
 		}
-		html += "</pre>"
-		w.Header().Add("Content-Type", "text/html")
-		w.Write([]byte(html))
+		sort.Strings(urls)
+		IndexTemplate.Execute(w, customhttp.DirectoryListing{"/", urls})
 	} else {
-		http.Error(w, fmt.Sprintf("degdb: file not found %s", r.URL), 404)
+		ErrorTemplate.Execute(w, "File Not Found (404) "+url)
 	}
+}
+
+func (s *Server) handleError(w http.ResponseWriter, err error) {
+	http.Error(w, err.Error(), 500)
 }
 
 func (s *Server) HTTPHandleFunc(route string, handler func(w http.ResponseWriter, r *http.Request)) {
 	s.httpEndpoints = append(s.httpEndpoints, route)
 	s.mux.HandleFunc(route, handler)
 }
+
 func (s *Server) HTTPHandle(route string, handler http.Handler) {
 	s.httpEndpoints = append(s.httpEndpoints, route)
 	s.mux.Handle(route, handler)
 }
 
-func (s *Server) listenHTTP() {
+func (s *Server) listenHTTP(addr net.Addr) {
+	s.listener.addr = addr
 	if err := s.HTTP.Serve(s.listener); err != nil {
 		s.Fatal(err)
 	}

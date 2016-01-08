@@ -9,14 +9,20 @@ import (
 	"time"
 
 	"github.com/GeertJohan/go.rice"
+	"github.com/degdb/degdb/network"
+	"github.com/degdb/degdb/network/http"
 	"github.com/degdb/degdb/protocol"
 	"github.com/degdb/degdb/query"
 	"github.com/spaolacci/murmur3"
 )
 
 func (s *server) initHTTP() error {
-	s.network.HTTPHandle("/static/", http.StripPrefix("/static/",
-		http.FileServer(rice.MustFindBox("../static").HTTPBox())))
+	fileServer := customhttp.NewFileServer(rice.MustFindBox("../static").HTTPBox())
+	fileServer.IndexTemplate = network.IndexTemplate
+	fileServer.ErrorTemplate = network.ErrorTemplate
+	fileServer.PathPrefix = "/static"
+
+	s.network.HTTPHandle("/static/", http.StripPrefix("/static/", fileServer))
 
 	// HTTP endpoints
 	s.network.HTTPHandleFunc("/api/v1/info", s.handleInfo)

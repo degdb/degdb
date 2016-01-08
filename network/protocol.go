@@ -77,8 +77,8 @@ func (s *Server) handleHandshake(conn *Conn, msg *protocol.Message) {
 	s.peersLock.Unlock()
 
 	s.Print(color.GreenString("New peer %s", conn.PrettyID()))
-	if !handshake.Response {
-		if err := s.sendHandshake(conn, true); err != nil {
+	if handshake.Type == protocol.HANDSHAKE_INITIAL {
+		if err := s.sendHandshake(conn, protocol.HANDSHAKE_RESPONSE); err != nil {
 			s.Printf("ERR sendHandshake %s", err)
 		}
 	} else {
@@ -143,12 +143,12 @@ func (s *Server) sendPeerRequest(conn *Conn) error {
 	return nil
 }
 
-func (s *Server) sendHandshake(conn *Conn, response bool) error {
+func (s *Server) sendHandshake(conn *Conn, typ protocol.Handshake_Type) error {
 	return conn.Send(&protocol.Message{
 		Message: &protocol.Message_Handshake{
 			Handshake: &protocol.Handshake{
-				Response: response,
-				Sender:   s.LocalPeer(),
+				Type:   typ,
+				Sender: s.LocalPeer(),
 			},
 		},
 	})
