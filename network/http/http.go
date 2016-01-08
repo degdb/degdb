@@ -85,8 +85,8 @@ func (f *FileServer) handle404(w http.ResponseWriter, r *http.Request) {
 }
 func (f *FileServer) handleError(w http.ResponseWriter, err string, code int) {
 	w.Header().Add("Content-Type", "text/html")
-	f.ErrorTemplate.Execute(w, err)
 	w.WriteHeader(code)
+	f.ErrorTemplate.Execute(w, err)
 }
 
 func NewFileServer(root http.FileSystem) *FileServer {
