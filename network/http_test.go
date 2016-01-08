@@ -3,6 +3,7 @@ package network
 import (
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -24,7 +25,7 @@ func TestHTTPProxy(t *testing.T) {
 	s.HTTPHandleFunc("/test", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(expectedResp))
 	})
-	baseURL := "http://" + s.LocalID()
+	baseURL := "http://localhost:" + strconv.Itoa(s.Port)
 	url := baseURL + "/test"
 	resp, err := http.Get(url)
 	if err != nil {
