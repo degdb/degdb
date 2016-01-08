@@ -36,6 +36,7 @@ func (s *Server) handleNotFound(w http.ResponseWriter, r *http.Request) {
 		sort.Strings(urls)
 		IndexTemplate.Execute(w, customhttp.DirectoryListing{"/", urls})
 	} else {
+		w.WriteHeader(404)
 		ErrorTemplate.Execute(w, "File Not Found (404) "+url)
 	}
 }
