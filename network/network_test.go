@@ -16,6 +16,9 @@ import (
 )
 
 func TestPeerDiscovery(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode.")
+	}
 	stunOnce.Do(func() {
 		stunWG.Done()
 	})
@@ -106,8 +109,8 @@ func TestMinimumCoveringPeers(t *testing.T) {
 		sort.Sort(sortConnByKeyspace(min))
 		union := &protocol.Keyspace{}
 
-		// Twice to make sure there aren't any order issues with 1 space gaps.
-		for i := 0; i < 2; i++ {
+		// Multiple times to make sure there aren't any order issues with 1 space gaps.
+		for i := 0; i < len(min); i++ {
 			for _, peer := range min {
 				union = union.Union(peer.Peer.Keyspace)
 			}
