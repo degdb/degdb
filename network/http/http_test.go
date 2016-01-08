@@ -83,7 +83,7 @@ func TestFileServer(t *testing.T) {
 	if resp.Code != 404 {
 		t.Errorf("/404 should return 404 code; got %d", resp.Code)
 	}
-	want := `<h1>File Not Found /404</h1>`
+	want := `<h1>File Not Found (404) /404</h1>`
 	got := resp.Body.String()
 	if got != want {
 		t.Errorf("/404 should return %s; got %s", want, got)

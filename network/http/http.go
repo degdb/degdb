@@ -14,7 +14,7 @@ var (
 <pre>
 {{range .Files}}<a href="{{.}}">{{.}}</a>
 {{end}}</pre>`))
-	default404Template   = template.Must(template.New("").Parse(`File Not Found {{.}}`))
+	default404Template   = template.Must(template.New("").Parse(`File Not Found (404) {{.}}`))
 	defaultErrorTemplate = template.Must(template.New("").Parse(`<h1>{{.}}</h1>`))
 )
 
