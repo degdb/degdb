@@ -2,6 +2,10 @@ language: go
 
 sudo: false
 
+env:
+  global:
+    - GOMAXPROCS=4
+
 os:
   - linux
   - osx
