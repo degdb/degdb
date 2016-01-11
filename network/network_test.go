@@ -86,6 +86,8 @@ func TestPeerDiscovery(t *testing.T) {
 }
 
 func TestMinimumCoveringPeers(t *testing.T) {
+	t.Parallel()
+
 	testData := []struct {
 		keyspaces []*protocol.Keyspace
 		cover     bool
@@ -158,6 +160,8 @@ func (s sortConnByKeyspace) Swap(i, j int) {
 }
 
 func TestLocalPeer(t *testing.T) {
+	t.Parallel()
+
 	testData := []struct {
 		ip      string
 		port    int

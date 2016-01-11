@@ -6,6 +6,8 @@ import (
 )
 
 func TestRandString(t *testing.T) {
+	t.Parallel()
+
 	testData := []struct {
 		length int
 	}{

@@ -10,6 +10,8 @@ import (
 )
 
 func TestHTTPProxy(t *testing.T) {
+	t.Parallel()
+
 	s, err := NewServer(nil, 0)
 	if err != nil {
 		t.Fatal(err)

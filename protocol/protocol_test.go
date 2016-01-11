@@ -6,6 +6,8 @@ import (
 )
 
 func TestKeyspaceIncludes(t *testing.T) {
+	t.Parallel()
+
 	testData := []struct {
 		ks   *Keyspace
 		hash uint64
@@ -73,6 +75,8 @@ func TestKeyspaceIncludes(t *testing.T) {
 }
 
 func TestKeyspaceUnion(t *testing.T) {
+	t.Parallel()
+
 	testData := []struct {
 		a, b, want *Keyspace
 	}{
@@ -148,6 +152,8 @@ func TestKeyspaceUnion(t *testing.T) {
 }
 
 func TestKeyspaceMag(t *testing.T) {
+	t.Parallel()
+
 	testData := []struct {
 		a    *Keyspace
 		want uint64
@@ -169,6 +175,8 @@ func TestKeyspaceMag(t *testing.T) {
 }
 
 func TestMaxed(t *testing.T) {
+	t.Parallel()
+
 	testData := []struct {
 		a    *Keyspace
 		want bool

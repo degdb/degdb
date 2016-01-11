@@ -36,6 +36,8 @@ var testTriples = []*protocol.Triple{
 }
 
 func TestTripleDuplicates(t *testing.T) {
+	t.Parallel()
+
 	file, err := ioutil.TempFile(os.TempDir(), "triplestore.db")
 	if err != nil {
 		t.Fatal(err)
@@ -60,6 +62,8 @@ func TestTripleDuplicates(t *testing.T) {
 }
 
 func TestTripleStore(t *testing.T) {
+	t.Parallel()
+
 	file, err := ioutil.TempFile(os.TempDir(), "triplestore.db")
 	if err != nil {
 		t.Fatal(err)
@@ -137,6 +141,8 @@ func TestTripleStore(t *testing.T) {
 }
 
 func TestArrayOpToSQL(t *testing.T) {
+	t.Parallel()
+
 	testData := []struct {
 		op   *protocol.ArrayOp
 		want []string
@@ -273,6 +279,8 @@ func BenchmarkTripleInsertBatch1000(b *testing.B) {
 }
 
 func TestTripleStoreQueryArrayOp(t *testing.T) {
+	t.Parallel()
+
 	file, err := ioutil.TempFile(os.TempDir(), "triplestore.db")
 	if err != nil {
 		t.Fatal(err)

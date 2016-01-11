@@ -7,6 +7,8 @@ import (
 )
 
 func TestFingerprint(t *testing.T) {
+	t.Parallel()
+
 	testData := []struct {
 		triple *protocol.Triple
 		length int

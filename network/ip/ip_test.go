@@ -23,6 +23,8 @@ func newServer() (string, *httptest.Server) {
 }
 
 func TestIP(t *testing.T) {
+	t.Parallel()
+
 	addr, s := newServer()
 	defer s.Close()
 

@@ -15,12 +15,16 @@ const (
 )
 
 func TestKeyGeneration(t *testing.T) {
+	t.Parallel()
+
 	if _, err := GenerateKey(); err != nil {
 		t.Error(err)
 	}
 }
 
 func TestReadOrGenerateKey(t *testing.T) {
+	t.Parallel()
+
 	dir, err := ioutil.TempDir("", tmpKeyDir)
 	if err != nil {
 		t.Fatal(err)
@@ -49,6 +53,8 @@ func TestReadOrGenerateKey(t *testing.T) {
 }
 
 func TestSignTriple(t *testing.T) {
+	t.Parallel()
+
 	key, err := GenerateKey()
 	if err != nil {
 		t.Fatal(err)

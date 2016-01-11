@@ -70,6 +70,8 @@ func (f *mockFile) IsDir() bool        { return len(f.files) > 0 }
 func (f *mockFile) Sys() interface{}   { return nil }
 
 func TestFileServer(t *testing.T) {
+	t.Parallel()
+
 	sys := &mockFileSystem{}
 	s := NewFileServer(sys)
 

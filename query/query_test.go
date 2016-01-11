@@ -8,6 +8,8 @@ import (
 )
 
 func TestParse(t *testing.T) {
+	t.Parallel()
+
 	testData := []struct {
 		in   string
 		want []*protocol.Triple
@@ -34,6 +36,8 @@ func TestParse(t *testing.T) {
 }
 
 func TestShardQueryByHash(t *testing.T) {
+	t.Parallel()
+
 	testData := []struct {
 		step *protocol.ArrayOp
 		want map[uint64]*protocol.ArrayOp
