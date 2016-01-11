@@ -264,7 +264,7 @@ func (s *Server) MinimumCoveringPeers() []*Conn {
 				continue
 			}
 			peer := conn.Peer
-			if i == 0 {
+			if keyspace == nil {
 				peers = append(peers, conn)
 				keyspace = peer.Keyspace
 				break Peers
@@ -287,5 +287,10 @@ func (s *Server) MinimumCoveringPeers() []*Conn {
 
 // keySpaceIncrease calculates the increase in keyspace if b was to be unioned.
 func keySpaceIncrease(a, b *protocol.Keyspace) uint64 {
-	return a.Union(b).Mag() - a.Mag()
+	unionMag := a.Union(b).Mag()
+	aMag := a.Mag()
+	if unionMag > aMag {
+		return unionMag - aMag
+	}
+	return 0
 }

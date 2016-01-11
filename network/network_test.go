@@ -122,17 +122,25 @@ func TestMinimumCoveringPeers(t *testing.T) {
 				}}
 		}
 		min := s.MinimumCoveringPeers()
+		if len(min) > len(td.keyspaces) {
+			t.Errorf("%d. len(s.MinimumCoveringPeers()) = %d > num keyspaces = %d", i, len(min), len(td.keyspaces))
+		}
 		sort.Sort(sortConnByKeyspace(min))
 		union := &protocol.Keyspace{}
+
+		var keyspaces []protocol.Keyspace
 
 		// Multiple times to make sure there aren't any order issues with 1 space gaps.
 		for i := 0; i < len(min); i++ {
 			for _, peer := range min {
+				if i == 0 {
+					keyspaces = append(keyspaces, *peer.Peer.Keyspace)
+				}
 				union = union.Union(peer.Peer.Keyspace)
 			}
 		}
 		if union.Maxed() != td.cover {
-			t.Errorf("%d. s.MinimumCoveringPeers().Union().Maxed() != %+v, %+v, %+v", i, td.cover, math.MaxUint64-union.Mag(), min)
+			t.Errorf("%d. s.MinimumCoveringPeers().Union().Maxed() != %+v, %+v, %+v", i, td.cover, math.MaxUint64-union.Mag(), keyspaces)
 		}
 	}
 }
