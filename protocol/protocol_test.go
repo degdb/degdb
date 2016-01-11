@@ -59,6 +59,11 @@ func TestKeyspaceIncludes(t *testing.T) {
 			75,
 			false,
 		},
+		{
+			nil,
+			0,
+			false,
+		},
 	}
 	for i, td := range testData {
 		if out := td.ks.Includes(td.hash); out != td.want {
@@ -120,6 +125,19 @@ func TestKeyspaceUnion(t *testing.T) {
 			&Keyspace{1, 20},
 			&Keyspace{20, 1},
 			&Keyspace{1, 0},
+		},
+		{
+			nil, nil, nil,
+		},
+		{
+			&Keyspace{1, 2},
+			nil,
+			&Keyspace{1, 2},
+		},
+		{
+			nil,
+			&Keyspace{1, 2},
+			&Keyspace{1, 2},
 		},
 	}
 	for i, td := range testData {

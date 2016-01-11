@@ -58,13 +58,29 @@ func TestPeerDiscovery(t *testing.T) {
 		}()
 		time.Sleep(20 * time.Millisecond)
 	}
-	time.Sleep(50 * time.Millisecond)
-	for _, node := range nodes {
-		for _, peer := range nodes {
-			protoPeer := peer.LocalPeer()
-			if node.Peers[protoPeer.Id] == nil && node != peer {
-				t.Errorf("node %+v missing peer %+v", node.LocalPeer(), protoPeer)
+	time.Sleep(100 * time.Millisecond)
+
+	retryCount := 3
+	for i := 0; i < retryCount; i++ {
+		var errors []error
+		for _, node := range nodes {
+			for _, peer := range nodes {
+				protoPeer := peer.LocalPeer()
+				if node.Peers[protoPeer.Id] == nil && node != peer {
+					errors = append(errors, fmt.Errorf("node %+v missing peer %+v", node.LocalPeer(), protoPeer))
+				}
 			}
+		}
+		if len(errors) == 0 {
+			break
+		}
+		if i < retryCount-1 {
+			log.Printf("Rechecking peer discovery... %d times", retryCount-i)
+			time.Sleep(200 * time.Millisecond)
+			continue
+		}
+		for _, err := range errors {
+			t.Error(err)
 		}
 	}
 }
