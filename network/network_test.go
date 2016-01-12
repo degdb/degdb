@@ -15,17 +15,15 @@ import (
 	"github.com/degdb/degdb/protocol"
 )
 
-func TestPeerDiscovery(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping test in short mode.")
-	}
+const retryCount = 10
+
+func launchSwarm(nodeCount int, t *testing.T) []*Server {
 	stunOnce.Do(func() {
 		stunWG.Done()
 	})
-	host = "localhost"
+	stunHost = "localhost"
 
-	nodeCount := 5
-	port := 8181
+	port := 11100
 	var nodes []*Server
 
 	var wg sync.WaitGroup
@@ -56,11 +54,9 @@ func TestPeerDiscovery(t *testing.T) {
 				t.Error(err)
 			}
 		}()
-		time.Sleep(20 * time.Millisecond)
+		time.Sleep(10 * time.Millisecond)
 	}
-	time.Sleep(100 * time.Millisecond)
 
-	retryCount := 3
 	for i := 0; i < retryCount; i++ {
 		var errors []error
 		for _, node := range nodes {
@@ -76,13 +72,22 @@ func TestPeerDiscovery(t *testing.T) {
 		}
 		if i < retryCount-1 {
 			log.Printf("Rechecking peer discovery... %d times", retryCount-i)
-			time.Sleep(200 * time.Millisecond)
+			time.Sleep(100 * time.Millisecond)
 			continue
 		}
 		for _, err := range errors {
 			t.Error(err)
 		}
 	}
+	return nodes
+}
+
+func TestPeerDiscovery(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode.")
+	}
+
+	launchSwarm(5, t)
 }
 
 func TestMinimumCoveringPeers(t *testing.T) {
@@ -196,4 +201,28 @@ func TestLocalPeer(t *testing.T) {
 			t.Errorf("%d. %#v.LocalPeer() = %#v; diff %s", i, s, out, diff)
 		}
 	}
+}
+
+func TestGetHost(t *testing.T) {
+	resetStun()
+
+	host := getHost()
+	if len(host) == 0 {
+		t.Error("getHost() len = 0")
+	}
+	want := "test"
+	stunHost = want
+	host2 := getHost()
+	if host2 != want {
+		t.Errorf("getHost() = %+v; not %+v", host2, want)
+	}
+}
+
+func resetStun() {
+	var testOnce sync.Once
+	var testWG sync.WaitGroup
+	testWG.Add(1)
+	stunOnce = testOnce
+	stunWG = testWG
+	stunHost = ""
 }

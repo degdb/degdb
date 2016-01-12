@@ -15,7 +15,7 @@ import (
 	"github.com/degdb/degdb/triplestore"
 )
 
-const (
+var (
 	KeyFilePath      = "degdb-%d.key"
 	DatabaseFilePath = "degdb-%d.db"
 )
@@ -30,7 +30,19 @@ type server struct {
 	*log.Logger
 }
 
+// Main launches a node with the specified parameters.
 func Main(port int, peers []string, diskAllocated int) {
+	s, err := newServer(port, peers, diskAllocated)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	bitcoin.NewClient()
+
+	s.Fatal(s.network.Listen())
+}
+
+func newServer(port int, peers []string, diskAllocated int) (*server, error) {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	s := &server{
 		Logger: log.New(os.Stdout,
@@ -41,13 +53,10 @@ func Main(port int, peers []string, diskAllocated int) {
 	}
 
 	if err := s.init(); err != nil {
-		s.Fatal(err)
+		return nil, err
 	}
-
-	bitcoin.NewClient()
-
 	go s.connectPeers(peers)
-	s.Fatal(s.network.Listen())
+	return s, nil
 }
 
 func (s *server) connectPeers(peers []string) {

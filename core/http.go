@@ -120,7 +120,7 @@ func (s *server) handleTriples(w http.ResponseWriter, r *http.Request) {
 
 // handlePeers is a debug method to dump the current known peers.
 func (s *server) handlePeers(w http.ResponseWriter, r *http.Request) {
-	var peers []*protocol.Peer
+	peers := make([]*protocol.Peer, 0, len(s.network.Peers))
 	for _, peer := range s.network.Peers {
 		peers = append(peers, peer.Peer)
 	}

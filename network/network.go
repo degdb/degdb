@@ -26,24 +26,26 @@ type protocolHandler func(conn *Conn, msg *protocol.Message)
 var (
 	stunOnce sync.Once
 	stunWG   sync.WaitGroup
-	host     string
+	stunHost string
 )
 
 func init() {
 	stunWG.Add(1)
 }
 
-func stunResults() {
+func getHost() string {
 	stunOnce.Do(func() {
 		// TODO(d4l3k): Fetch IP by talking to other nodes.
 		ip, err := ip.IP()
 		if err != nil {
 			log.Fatal(err)
 		}
-		host = ip
+		stunHost = ip
 		stunWG.Done()
 	})
 	stunWG.Wait()
+
+	return stunHost
 }
 
 // Server handles all network traffic.
@@ -77,9 +79,7 @@ func NewServer(logger *log.Logger, port int) (*Server, error) {
 		handlers: make(map[string]protocolHandler),
 	}
 
-	stunResults()
-
-	s.IP = host
+	s.IP = getHost()
 
 	s.listener = &httpListener{
 		accept: make(chan *httpConn, 10),
@@ -150,7 +150,7 @@ func (s *Server) Broadcast(hash *uint64, msg *protocol.Message) error {
 			alreadySentTo[to] = true
 		}
 	}
-	sentTo := []uint64{murmur3.Sum64([]byte(s.LocalPeer().Id))}
+	sentTo := []uint64{murmur3.Sum64([]byte(s.LocalID()))}
 	var toPeers []*Conn
 	for _, peer := range s.Peers {
 		peerHash := murmur3.Sum64([]byte(peer.Peer.Id))
