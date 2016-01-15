@@ -14,7 +14,7 @@ const (
 )
 
 func launchSwarm(nodeCount int, t *testing.T) []*server {
-	port := 11100
+	port := 11200
 	var nodes []*server
 
 	var wg sync.WaitGroup
