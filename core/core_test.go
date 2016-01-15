@@ -33,11 +33,11 @@ func launchSwarm(nodeCount int, t *testing.T) []*server {
 		go func() {
 			wg.Done()
 			if err := s.network.Listen(); err != nil {
-				t.Error(err)
+				t.Log(err)
 			}
 		}()
 		nodes = append(nodes, s)
-		time.Sleep(10 * time.Millisecond)
+		time.Sleep(20 * time.Millisecond)
 	}
 	wg.Wait()
 
@@ -56,7 +56,7 @@ func launchSwarm(nodeCount int, t *testing.T) []*server {
 		}
 		if i < retryCount-1 {
 			log.Printf("Rechecking peer discovery... %d times", retryCount-i)
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(200 * time.Millisecond)
 			continue
 		}
 		for _, err := range errors {
@@ -70,6 +70,7 @@ func killSwarm(nodes []*server) {
 	for _, node := range nodes {
 		node.Stop()
 	}
+	time.Sleep(200 * time.Millisecond)
 }
 
 func TestCoreDiscovery(t *testing.T) {
