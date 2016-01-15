@@ -87,7 +87,10 @@ func (c *Conn) RespondTo(to *protocol.Message, resp *protocol.Message) error {
 // Close closes the connection and sets Closed to true.
 func (c *Conn) Close() error {
 	c.Closed = true
-	return c.Conn.Close()
+	if c.Conn != nil {
+		return c.Conn.Close()
+	}
+	return nil
 }
 
 // PrettyID returns a terminal colored format of the connection ID.
