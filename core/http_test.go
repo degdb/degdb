@@ -82,8 +82,8 @@ func TestHTTP(t *testing.T) {
 			wantTrim := strings.TrimSpace(want)
 			if bodyTrim == wantTrim {
 				found = true
+				break
 			}
-			break
 		}
 		if !found {
 			t.Errorf("%d. http.Get(%+v) = %+v; not one of %+v", i, td.path, bodyTrim, td.want)
