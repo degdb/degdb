@@ -12,6 +12,29 @@ import (
 	"github.com/degdb/degdb/protocol"
 )
 
+var testTriples = []*protocol.Triple{
+	{
+		Subj: "/m/02mjmr",
+		Pred: "/type/object/name",
+		Obj:  "Barack Obama",
+	},
+	{
+		Subj: "/m/02mjmr",
+		Pred: "/type/object/type",
+		Obj:  "/people/person",
+	},
+	{
+		Subj: "/m/0hume",
+		Pred: "/type/object/name",
+		Obj:  "Hume",
+	},
+	{
+		Subj: "/m/0hume",
+		Pred: "/type/object/type",
+		Obj:  "/organization/team",
+	},
+}
+
 func TestTripleDuplicates(t *testing.T) {
 	t.Parallel()
 

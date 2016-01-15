@@ -65,6 +65,8 @@ type Server struct {
 	Peers     map[string]*Conn
 	peersLock sync.RWMutex
 
+	netListener net.Listener
+
 	handlers map[string]protocolHandler
 	listener *httpListener
 	*log.Logger
@@ -98,6 +100,30 @@ func NewServer(logger *log.Logger, port int) (*Server, error) {
 	return s, nil
 }
 
+type Closable interface {
+	Close() error
+}
+
+// Stop closes all connections and cleans up.
+func (s *Server) Stop() {
+	toClose := []Closable{s.netListener, s.listener}
+
+	s.peersLock.Lock()
+	defer s.peersLock.Unlock()
+	for _, peer := range s.Peers {
+		toClose = append(toClose, peer)
+	}
+
+	for _, close := range toClose {
+		if close == nil {
+			continue
+		}
+		if err := close.Close(); err != nil {
+			s.Println(err)
+		}
+	}
+}
+
 // Connect to another server. `addr` should be in the format "google.com:80".
 func (s *Server) Connect(addr string) error {
 	netConn, err := net.Dial("tcp", addr)
@@ -123,6 +149,7 @@ func (s *Server) Listen() error {
 	if err != nil {
 		return err
 	}
+	s.netListener = ln
 	addr := ln.Addr().(*net.TCPAddr)
 	if s.Port == 0 {
 		s.Port = addr.Port

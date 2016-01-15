@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -45,6 +46,10 @@ func TestHTTP(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	hosts, err := net.LookupHost("localhost")
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	testData := []struct {
 		path string
@@ -56,7 +61,7 @@ func TestHTTP(t *testing.T) {
 		},
 		{
 			"/api/v1/myip",
-			"::1",
+			hosts[0],
 		},
 		{
 			"/api/v1/peers",

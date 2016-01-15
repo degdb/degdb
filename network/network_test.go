@@ -82,12 +82,19 @@ func launchSwarm(nodeCount int, t *testing.T) []*Server {
 	return nodes
 }
 
+func killSwarm(nodes []*Server) {
+	for _, node := range nodes {
+		node.Stop()
+	}
+}
+
 func TestPeerDiscovery(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode.")
 	}
 
-	launchSwarm(5, t)
+	nodes := launchSwarm(5, t)
+	defer killSwarm(nodes)
 }
 
 func TestMinimumCoveringPeers(t *testing.T) {

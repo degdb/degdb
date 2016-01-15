@@ -106,3 +106,8 @@ func (s *server) init() error {
 
 	return nil
 }
+
+// Stop stops the server and closes all open sockets.
+func (s *server) Stop() {
+	s.network.Stop()
+}

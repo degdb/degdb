@@ -66,10 +66,17 @@ func launchSwarm(nodeCount int, t *testing.T) []*server {
 	return nodes
 }
 
+func killSwarm(nodes []*server) {
+	for _, node := range nodes {
+		node.Stop()
+	}
+}
+
 func TestCoreDiscovery(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode.")
 	}
 
-	launchSwarm(5, t)
+	nodes := launchSwarm(5, t)
+	defer killSwarm(nodes)
 }
