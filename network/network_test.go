@@ -54,7 +54,7 @@ func launchSwarm(nodeCount int, t *testing.T) []*Server {
 				t.Error(err)
 			}
 		}()
-		time.Sleep(20 * time.Millisecond)
+		time.Sleep(10 * time.Millisecond)
 	}
 
 	for i := 0; i < retryCount; i++ {
@@ -72,7 +72,7 @@ func launchSwarm(nodeCount int, t *testing.T) []*Server {
 		}
 		if i < retryCount-1 {
 			log.Printf("Rechecking peer discovery... %d times", retryCount-i)
-			time.Sleep(200 * time.Millisecond)
+			time.Sleep(100 * time.Millisecond)
 			continue
 		}
 		for _, err := range errors {

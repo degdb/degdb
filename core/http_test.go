@@ -53,19 +53,19 @@ func TestHTTP(t *testing.T) {
 
 	testData := []struct {
 		path string
-		want string
+		want []string
 	}{
 		{
 			"/api/v1/info",
-			string(localPeerJSON),
+			[]string{string(localPeerJSON)},
 		},
 		{
 			"/api/v1/myip",
-			hosts[0],
+			hosts,
 		},
 		{
 			"/api/v1/peers",
-			"[]",
+			[]string{"[]"},
 		},
 	}
 
@@ -77,9 +77,16 @@ func TestHTTP(t *testing.T) {
 		}
 		body, _ := ioutil.ReadAll(resp.Body)
 		bodyTrim := strings.TrimSpace(string(body))
-		wantTrim := strings.TrimSpace(td.want)
-		if bodyTrim != wantTrim {
-			t.Errorf("%d. http.Get(%+v) = %+v; not %+v", i, td.path, bodyTrim, wantTrim)
+		found := false
+		for _, want := range td.want {
+			wantTrim := strings.TrimSpace(want)
+			if bodyTrim == wantTrim {
+				found = true
+			}
+			break
+		}
+		if !found {
+			t.Errorf("%d. http.Get(%+v) = %+v; not one of %+v", i, td.path, bodyTrim, td.want)
 		}
 	}
 }

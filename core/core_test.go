@@ -35,7 +35,7 @@ func launchSwarm(nodeCount int, t *testing.T) []*server {
 		}()
 		peers = append(peers, fmt.Sprintf("localhost:%d", s.network.Port))
 		nodes = append(nodes, s)
-		time.Sleep(20 * time.Millisecond)
+		time.Sleep(10 * time.Millisecond)
 	}
 	wg.Wait()
 
@@ -54,7 +54,7 @@ func launchSwarm(nodeCount int, t *testing.T) []*server {
 		}
 		if i < retryCount-1 {
 			log.Printf("Rechecking peer discovery... %d times", retryCount-i)
-			time.Sleep(200 * time.Millisecond)
+			time.Sleep(100 * time.Millisecond)
 			continue
 		}
 		for _, err := range errors {
