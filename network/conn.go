@@ -86,6 +86,9 @@ func (c *Conn) RespondTo(to *protocol.Message, resp *protocol.Message) error {
 
 // Close closes the connection and sets Closed to true.
 func (c *Conn) Close() error {
+	if c == nil {
+		return nil
+	}
 	c.Closed = true
 	if c.Conn != nil {
 		return c.Conn.Close()
