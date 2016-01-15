@@ -69,11 +69,13 @@ func (s *server) handleInsertTriple(w http.ResponseWriter, r *http.Request) {
 				}},
 			Gossip: true,
 		}
-		if err := s.network.Broadcast(&hash, msg); err != nil {
+		currentKeyspace := s.network.LocalPeer().Keyspace.Includes(hash)
+		if err := s.network.Broadcast(&hash, msg); currentKeyspace && err == network.ErrNoRecipients {
+		} else if err != nil {
 			http.Error(w, err.Error(), 400)
 			return
 		}
-		if s.network.LocalPeer().Keyspace.Includes(hash) {
+		if currentKeyspace {
 			s.ts.Insert(triples)
 		}
 	}

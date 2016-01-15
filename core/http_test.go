@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/degdb/degdb/protocol"
+	"github.com/spaolacci/murmur3"
 )
 
 func init() {
@@ -58,10 +59,6 @@ func TestHTTP(t *testing.T) {
 			"::1",
 		},
 		{
-			"/api/v1/triples",
-			"[]",
-		},
-		{
 			"/api/v1/peers",
 			"[]",
 		},
@@ -105,6 +102,36 @@ var testTriples = []*protocol.Triple{
 	},
 }
 
+// subjInKeyspace appends an increasing number to the prefix until it finds a
+// string that will hash into the given keyspace.
+func subjInKeyspace(keyspace *protocol.Keyspace, prefix string) string {
+	subj := prefix
+	i := 1
+	for !keyspace.Includes(murmur3.Sum64([]byte(subj))) {
+		subj = prefix + strconv.Itoa(i)
+		i++
+	}
+	return subj
+}
+
+// testTriplesKeyspcae returns a set of triples in the current keyspace.
+func testTriplesKeyspace(keyspace *protocol.Keyspace) []*protocol.Triple {
+	subjs := make(map[string]string)
+	var triples []*protocol.Triple
+	for _, triple := range testTriples {
+		triple := *triple
+		if subj, ok := subjs[triple.Subj]; ok {
+			triple.Subj = subj
+		} else {
+			subj = subjInKeyspace(keyspace, triple.Subj)
+			subjs[triple.Subj] = subj
+			triple.Subj = subj
+		}
+		triples = append(triples, &triple)
+	}
+	return triples
+}
+
 func TestInsertAndRetreiveTriples(t *testing.T) {
 	t.Parallel()
 
@@ -113,6 +140,8 @@ func TestInsertAndRetreiveTriples(t *testing.T) {
 
 	time.Sleep(10 * time.Millisecond)
 	base := fmt.Sprintf("http://localhost:%d", s.network.Port)
+
+	testTriples := testTriplesKeyspace(s.network.LocalKeyspace())
 
 	triples, err := json.Marshal(testTriples)
 	if err != nil {
@@ -129,6 +158,9 @@ func TestInsertAndRetreiveTriples(t *testing.T) {
 	if !bytes.Contains(out, []byte(strconv.Itoa(len(testTriples)))) {
 		t.Errorf("http.Post(/api/v1/insert) = %+v; missing %+v", string(out), len(testTriples))
 	}
+
+	// Takes a bit of time to write
+	time.Sleep(100 * time.Millisecond)
 
 	var signedTriples []*protocol.Triple
 

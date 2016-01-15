@@ -3,6 +3,7 @@ package network
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"log"
 	"math"
@@ -24,6 +25,8 @@ import (
 type protocolHandler func(conn *Conn, msg *protocol.Message)
 
 var (
+	ErrNoRecipients = errors.New("no recipients for the message were found")
+
 	stunOnce sync.Once
 	stunWG   sync.WaitGroup
 	stunHost string
@@ -143,6 +146,7 @@ func (s *Server) Handle(typ string, f protocolHandler) {
 }
 
 // Broadcast sends a message to all peers with that have the hash in their keyspace.
+// If there is no peer that can receive the message, ErrNoRecipients is returned.
 func (s *Server) Broadcast(hash *uint64, msg *protocol.Message) error {
 	alreadySentTo := make(map[uint64]bool)
 	if msg.Gossip {
@@ -161,6 +165,9 @@ func (s *Server) Broadcast(hash *uint64, msg *protocol.Message) error {
 	}
 	if msg.Gossip {
 		msg.SentTo = append(msg.SentTo, sentTo...)
+	}
+	if len(toPeers) == 0 {
+		return ErrNoRecipients
 	}
 	for _, peer := range toPeers {
 		s.Printf("Broadcasting to %s", peer.Peer.Id)
@@ -228,16 +235,19 @@ func (s *Server) handleConnection(conn *Conn) error {
 
 // LocalPeer returns a peer object of the current server.
 func (s *Server) LocalPeer() *protocol.Peer {
-	id := s.LocalID()
-	center := murmur3.Sum64([]byte(id))
-	keyspace := &protocol.Keyspace{
+	return &protocol.Peer{
+		Id:       s.LocalID(),
+		Serving:  s.Serving,
+		Keyspace: s.LocalKeyspace(),
+	}
+}
+
+// LocalKeyspace returns the keyspace that the local node represents.
+func (s *Server) LocalKeyspace() *protocol.Keyspace {
+	center := murmur3.Sum64([]byte(s.LocalID()))
+	return &protocol.Keyspace{
 		Start: center - math.MaxUint64/4,
 		End:   center + math.MaxUint64/4,
-	}
-	return &protocol.Peer{
-		Id:       id,
-		Serving:  s.Serving,
-		Keyspace: keyspace,
 	}
 }
 
