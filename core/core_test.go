@@ -20,12 +20,9 @@ func launchSwarm(nodeCount int, t *testing.T) []*server {
 	var wg sync.WaitGroup
 	wg.Add(nodeCount)
 
+	var peers []string
 	for i := 0; i < nodeCount; i++ {
 		port := port + i
-		var peers []string
-		if i > 0 {
-			peers = append(peers, fmt.Sprintf("localhost:%d", nodes[i-1].network.Port))
-		}
 		s, err := newServer(port, peers, diskAllocated)
 		if err != nil {
 			t.Error(err)
@@ -36,6 +33,7 @@ func launchSwarm(nodeCount int, t *testing.T) []*server {
 				t.Log(err)
 			}
 		}()
+		peers = append(peers, fmt.Sprintf("localhost:%d", s.network.Port))
 		nodes = append(nodes, s)
 		time.Sleep(20 * time.Millisecond)
 	}
