@@ -75,3 +75,13 @@ func (msg *Message) Hash() uint64 {
 	data, _ := msg.Marshal()
 	return murmur3.Sum64(data)
 }
+
+// CloneTriples makes a shallow copy of the triples.
+func CloneTriples(triples []*Triple) []*Triple {
+	ntrips := make([]*Triple, len(triples))
+	for i, triple := range triples {
+		t := *triple
+		ntrips[i] = &t
+	}
+	return ntrips
+}
