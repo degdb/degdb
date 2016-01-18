@@ -13,11 +13,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/d4l3k/messagediff"
 	"github.com/degdb/degdb/protocol"
 	"github.com/spaolacci/murmur3"
 )
 
 func init() {
+	newTmpDir()
+	protocol.SortTriples(testTriples)
+}
+
+func newTmpDir() {
 	dir, err := ioutil.TempDir("", "degdb-test-files")
 	if err != nil {
 		log.Fatal(err)
@@ -27,6 +33,7 @@ func init() {
 }
 
 func testServer(t *testing.T) *server {
+	newTmpDir()
 	s, err := newServer(0, nil, diskAllocated)
 	if err != nil {
 		t.Fatal(err)
@@ -184,7 +191,18 @@ func TestInsertAndRetreiveTriples(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if len(signedTriples) != len(testTriples) {
-		t.Errorf("http.Get(/api/v1/insert) = %+v; not %+v", signedTriples, testTriples)
+	strippedTriples := stripCreated(stripSigning(signedTriples))
+	protocol.SortTriples(strippedTriples)
+
+	if diff, equal := messagediff.PrettyDiff(testTriples, strippedTriples); !equal {
+		t.Errorf("http.Get(/api/v1/insert) = %+v\n;not %+v\n%s", strippedTriples, testTriples, diff)
 	}
+}
+
+func stripCreated(triples []*protocol.Triple) []*protocol.Triple {
+	triples = protocol.CloneTriples(triples)
+	for _, triple := range triples {
+		triple.Created = 0
+	}
+	return triples
 }

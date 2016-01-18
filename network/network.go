@@ -66,6 +66,8 @@ type Server struct {
 	peersLock sync.RWMutex
 
 	netListener net.Listener
+	// listeningWG waits for the server to start listening and accepting connections.
+	listeningWG sync.WaitGroup
 
 	handlers map[string]protocolHandler
 	listener *httpListener
@@ -83,6 +85,8 @@ func NewServer(logger *log.Logger, port int) (*Server, error) {
 		Peers:    make(map[string]*Conn),
 		handlers: make(map[string]protocolHandler),
 	}
+
+	s.listeningWG.Add(1)
 
 	s.IP = getHost()
 
@@ -124,6 +128,11 @@ func (s *Server) Stop() {
 	}
 }
 
+// ListenWait waits for the server to start accepting connections before returning.
+func (s *Server) ListenWait() {
+	s.listeningWG.Wait()
+}
+
 // Connect to another server. `addr` should be in the format "google.com:80".
 func (s *Server) Connect(addr string) error {
 	netConn, err := net.Dial("tcp", addr)
@@ -157,6 +166,7 @@ func (s *Server) Listen() error {
 
 	go s.listenHTTP(addr)
 	s.Printf("Listening: 0.0.0.0:%d, ip: %s", s.Port, s.IP)
+	s.listeningWG.Done()
 	for {
 		conn, err := ln.Accept()
 		if err != nil {

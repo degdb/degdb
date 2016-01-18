@@ -3,7 +3,6 @@ package core
 import (
 	"fmt"
 	"log"
-	"sync"
 	"testing"
 	"time"
 )
@@ -14,30 +13,23 @@ const (
 )
 
 func launchSwarm(nodeCount int, t *testing.T) []*server {
-	port := 11200
 	var nodes []*server
-
-	var wg sync.WaitGroup
-	wg.Add(nodeCount)
 
 	var peers []string
 	for i := 0; i < nodeCount; i++ {
-		port := port + i
-		s, err := newServer(port, peers, diskAllocated)
+		s, err := newServer(0, peers, diskAllocated)
 		if err != nil {
 			t.Error(err)
 		}
 		go func() {
-			wg.Done()
 			if err := s.network.Listen(); err != nil {
 				t.Log(err)
 			}
 		}()
+		s.network.ListenWait()
 		peers = append(peers, fmt.Sprintf("localhost:%d", s.network.Port))
 		nodes = append(nodes, s)
-		time.Sleep(10 * time.Millisecond)
 	}
-	wg.Wait()
 
 	for i := 0; i < retryCount; i++ {
 		var errors []error

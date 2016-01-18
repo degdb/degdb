@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/GeertJohan/go.rice"
+
+	"github.com/degdb/degdb/crypto"
 	"github.com/degdb/degdb/network"
 	"github.com/degdb/degdb/network/http"
 	"github.com/degdb/degdb/protocol"
@@ -48,13 +50,21 @@ func (s *server) handleInsertTriple(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// TODO(d4l3k): This should ideally be refactored and force the client to presign the triple.
+	if err := s.signAndInsertTriples(triples, s.crypto); err != nil {
+		http.Error(w, err.Error(), 500)
+	}
+
+	w.Write([]byte(fmt.Sprintf("Inserted %d triples.", len(triples))))
+}
+
+// signAndInsertTriples signs a set of triples with the server's key and then inserts them into the graph.
+func (s *server) signAndInsertTriples(triples []*protocol.Triple, key *crypto.PrivateKey) error {
 	hashes := make(map[uint64][]*protocol.Triple)
 	unix := time.Now().Unix()
 	for _, triple := range triples {
-		// TODO(d4l3k): This should ideally be refactored and force the client to presign the triple.
-		if err := s.crypto.SignTriple(triple); err != nil {
-			http.Error(w, err.Error(), 500)
-			return
+		if err := key.SignTriple(triple); err != nil {
+			return err
 		}
 		triple.Created = unix
 		hash := murmur3.Sum64([]byte(triple.Subj))
@@ -72,14 +82,13 @@ func (s *server) handleInsertTriple(w http.ResponseWriter, r *http.Request) {
 		currentKeyspace := s.network.LocalPeer().Keyspace.Includes(hash)
 		if err := s.network.Broadcast(&hash, msg); currentKeyspace && err == network.ErrNoRecipients {
 		} else if err != nil {
-			http.Error(w, err.Error(), 400)
-			return
+			return err
 		}
 		if currentKeyspace {
 			s.ts.Insert(triples)
 		}
 	}
-	w.Write([]byte(fmt.Sprintf("Inserted %d triples.", len(triples))))
+	return nil
 }
 
 // handleQuery executes a query against the graph.

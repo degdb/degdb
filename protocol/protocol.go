@@ -1,6 +1,10 @@
 package protocol
 
-import "github.com/spaolacci/murmur3"
+import (
+	"sort"
+
+	"github.com/spaolacci/murmur3"
+)
 
 //go:generate protoc --gogoslick_out=. protocol.proto
 
@@ -85,3 +89,19 @@ func CloneTriples(triples []*Triple) []*Triple {
 	}
 	return ntrips
 }
+
+// SortTriples sorts a slice of triples by Subj, Pred, Obj
+func SortTriples(triples []*Triple) {
+	sort.Sort(TripleSlice(triples))
+}
+
+// See SortTriples
+type TripleSlice []*Triple
+
+func (p TripleSlice) Len() int { return len(p) }
+func (p TripleSlice) Less(i, j int) bool {
+	a := p[i]
+	b := p[j]
+	return a.Subj < b.Subj && a.Pred < b.Pred && a.Obj < b.Obj
+}
+func (p TripleSlice) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
