@@ -15,6 +15,12 @@ import (
 	"github.com/degdb/degdb/protocol"
 )
 
+const (
+	// BloomFalsePositiveRate with 1 million items is about 5.14MB in size. Scales linearly.
+	// http://hur.st/bloomfilter?n=1000000&p=1.0E-9
+	BloomFalsePositiveRate = 1.0e-9
+)
+
 type TripleStore struct {
 	db     gorm.DB
 	dbFile string
