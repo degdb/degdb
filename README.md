@@ -15,7 +15,7 @@ $ go get -v -u github.com/degdb/degdb github.com/btcsuite/btcwallet github.com/b
 $ btcwallet --create
 
 # Launch new server and connect to provided peers.
-$ go run main.go -new -peers="example.com:8181,foo.io:8182"
+$ go run main.go -peers="example.com:8181,foo.io:8182"
 ```
 
 `$GOPATH/bin` must be on the path so degdb can launch instances of btcwallet and btcd.
@@ -23,7 +23,7 @@ $ go run main.go -new -peers="example.com:8181,foo.io:8182"
 ## Development
 For development purposes you can launch multiple nodes within a single binary. This can only be used in development and disables connecting to external peers.
 ```bash
-go run main.go -new -port=8181 -nodes=10
+go run main.go -port=8181 -nodes=10
 ```
 
 ## License
