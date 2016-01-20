@@ -3,6 +3,8 @@ package protocol
 import (
 	"math"
 	"testing"
+
+	"github.com/d4l3k/messagediff"
 )
 
 func TestKeyspaceIncludes(t *testing.T) {
@@ -284,6 +286,33 @@ func TestKeyspaceMaxed(t *testing.T) {
 	for i, td := range testData {
 		if out := td.a.Maxed(); out != td.want {
 			t.Errorf("%d. %+v.Maxed() = %+v not %+v", i, td.a, out, td.want)
+		}
+	}
+}
+
+func TestKeyspaceComplement(t *testing.T) {
+	t.Parallel()
+
+	testData := []struct {
+		a, want *Keyspace
+	}{
+		{
+			&Keyspace{1, 10},
+			&Keyspace{10, 1},
+		},
+		{
+			nil,
+			&Keyspace{1, 0},
+		},
+		{
+			&Keyspace{1, 0},
+			nil,
+		},
+	}
+	for i, td := range testData {
+		out := td.a.Complement()
+		if diff, equal := messagediff.PrettyDiff(td.want, out); !equal {
+			t.Errorf("%d. %+v.Complement() = %+v not %+v\n%s", i, td.a, out, td.want, diff)
 		}
 	}
 }

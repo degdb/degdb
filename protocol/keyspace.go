@@ -106,6 +106,16 @@ func (k *Keyspace) Maxed() bool {
 	return k != nil && k.End == k.Start-1
 }
 
+// Complement returns the complement of the keyspace.
+func (k *Keyspace) Complement() *Keyspace {
+	if k == nil {
+		return &Keyspace{1, 0}
+	} else if k.Maxed() {
+		return nil
+	}
+	return &Keyspace{Start: k.End, End: k.Start}
+}
+
 // Clone makes a copy of the keyspace.
 func (k *Keyspace) Clone() *Keyspace {
 	return &Keyspace{Start: k.Start, End: k.End}
