@@ -4,7 +4,7 @@ Distributed Economic Graph Database
 
 [Design Doc/Ramble](https://docs.google.com/document/d/1Z1zUMOGzsBLOU1JoeY-CLFI9eSMajrnQraBvSybjP8I/edit)
 
-Initial implementation done at PennApps 2015 Fall. It can be located in the `old/` directory. There is a slow rewrite/redesign happening.
+Initial implementation done at PennApps 2015 Fall. There is a slow rewrite/redesign happening.
 
 ## Running
 ```bash
