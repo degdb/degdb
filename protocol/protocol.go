@@ -35,6 +35,6 @@ func (p TripleSlice) Len() int { return len(p) }
 func (p TripleSlice) Less(i, j int) bool {
 	a := p[i]
 	b := p[j]
-	return a.Subj < b.Subj && a.Pred < b.Pred && a.Obj < b.Obj
+	return a.Subj < b.Subj || a.Pred < b.Pred || a.Obj < b.Obj
 }
 func (p TripleSlice) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
