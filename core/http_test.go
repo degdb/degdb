@@ -148,6 +148,7 @@ func testTriplesKeyspace(keyspace *protocol.Keyspace) []*protocol.Triple {
 		}
 		triples = append(triples, &triple)
 	}
+	protocol.SortTriples(triples)
 	return triples
 }
 

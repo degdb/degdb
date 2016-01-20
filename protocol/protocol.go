@@ -1,6 +1,7 @@
 package protocol
 
 import (
+	"bytes"
 	"sort"
 
 	"github.com/spaolacci/murmur3"
@@ -35,6 +36,17 @@ func (p TripleSlice) Len() int { return len(p) }
 func (p TripleSlice) Less(i, j int) bool {
 	a := p[i]
 	b := p[j]
-	return a.Subj < b.Subj || a.Pred < b.Pred || a.Obj < b.Obj
+
+	var abuf bytes.Buffer
+	abuf.WriteString(a.Subj)
+	abuf.WriteString(a.Pred)
+	abuf.WriteString(a.Obj)
+
+	var bbuf bytes.Buffer
+	bbuf.WriteString(b.Subj)
+	bbuf.WriteString(b.Pred)
+	bbuf.WriteString(b.Obj)
+
+	return abuf.String() < bbuf.String()
 }
 func (p TripleSlice) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
