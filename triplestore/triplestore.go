@@ -168,3 +168,28 @@ func (ts *TripleStore) Size() (*Info, error) {
 
 	return i, nil
 }
+
+// EachTripleBatch is used to stream triples from the database in batches of the specified size.
+func (ts *TripleStore) EachTripleBatch(size int) (<-chan []*protocol.Triple, <-chan error) {
+	c := make(chan []*protocol.Triple, 10)
+	cerr := make(chan error, 1)
+
+	go func() {
+		dbq := ts.db.Where(&protocol.Triple{}).Limit(size)
+
+		var triples []*protocol.Triple
+		for i := 0; i == 0 || len(triples) > 0; i++ {
+			triples = triples[0:0]
+			if err := dbq.Offset(i * size).Find(&triples).Error; err != nil {
+				cerr <- err
+				break
+			}
+			if len(triples) > 0 {
+				c <- triples
+			}
+		}
+		close(c)
+		close(cerr)
+	}()
+	return c, cerr
+}
