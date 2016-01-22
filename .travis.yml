@@ -23,5 +23,8 @@ before_install:
   - go get github.com/btcsuite/btcwallet
   - if ! go get github.com/golang/tools/cmd/cover; then go get golang.org/x/tools/cmd/cover; fi
 
+install:
+  go get -t ./...
+
 script:
     - travis_retry $HOME/gopath/bin/goveralls -shallow -ignore="**/*.pb.go" -service=travis-ci -v ./...
