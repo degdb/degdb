@@ -12,7 +12,7 @@ import (
 
 	"github.com/degdb/degdb/crypto"
 	"github.com/degdb/degdb/network"
-	"github.com/degdb/degdb/network/http"
+	"github.com/degdb/degdb/network/customhttp"
 	"github.com/degdb/degdb/protocol"
 	"github.com/degdb/degdb/query"
 	"github.com/spaolacci/murmur3"

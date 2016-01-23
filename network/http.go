@@ -5,10 +5,9 @@ import (
 	"net"
 	"net/http"
 	"sort"
-	"time"
 
 	"github.com/GeertJohan/go.rice"
-	"github.com/degdb/degdb/network/http"
+	"github.com/degdb/degdb/network/customhttp"
 )
 
 var staticBox = rice.MustFindBox("../static/")
@@ -63,12 +62,12 @@ func (s *Server) listenHTTP(addr net.Addr) {
 }
 
 func (s *Server) handleHTTPConnection(initial []byte, conn *Conn) {
-	s.listener.accept <- &httpConn{conn: conn, initial: initial}
+	s.listener.accept <- &httpConn{Conn: conn, initial: initial}
 }
 
 // httpConn is an intermediate that can append some initial bytes to a Conn
 type httpConn struct {
-	conn    *Conn
+	*Conn
 	initial []byte
 }
 
@@ -78,17 +77,9 @@ func (c *httpConn) Read(b []byte) (int, error) {
 		copy(b, c.initial)
 		c.initial = nil
 	}
-	n, err := c.conn.Read(b[i:])
+	n, err := c.Conn.Read(b[i:])
 	return n + i, err
 }
-
-func (c *httpConn) Close() error                       { return c.conn.Close() }
-func (c *httpConn) LocalAddr() net.Addr                { return c.conn.LocalAddr() }
-func (c *httpConn) Write(b []byte) (int, error)        { return c.conn.Write(b) }
-func (c *httpConn) RemoteAddr() net.Addr               { return c.conn.RemoteAddr() }
-func (c *httpConn) SetDeadline(t time.Time) error      { return c.conn.SetDeadline(t) }
-func (c *httpConn) SetReadDeadline(t time.Time) error  { return c.conn.SetReadDeadline(t) }
-func (c *httpConn) SetWriteDeadline(t time.Time) error { return c.conn.SetWriteDeadline(t) }
 
 type httpListener struct {
 	addr   net.Addr
